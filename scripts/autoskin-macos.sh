@@ -38,7 +38,7 @@ case "$COMMAND" in
     ;;
 
   install)
-    PORT=9335
+    PORT="$(dream_installed_port)"
     APP_PATH=""
     NODE_PATH=""
     RESTART_EXISTING=0
@@ -64,9 +64,10 @@ case "$COMMAND" in
     INSTALL_ARGS=(--port "$PORT" --app "$APP_BUNDLE" --node "$NODE_BIN")
     [ "$NO_AUTO_RECOVER" -ne 1 ] || INSTALL_ARGS+=(--no-auto-recover)
     "$SCRIPT_DIR/install-dream-skin.sh" "${INSTALL_ARGS[@]}"
+    INSTALLED_SCRIPT="$(dream_state_root)/runtime/scripts/autoskin-macos.sh"
 
     if [ "$NO_START" -eq 1 ]; then
-      echo "AutoSkin is installed. Run '$0 start' when you are ready to launch it."
+      echo "AutoSkin is installed. Run '$INSTALLED_SCRIPT start' when you are ready to launch it."
       exit 0
     fi
 
@@ -78,20 +79,20 @@ case "$COMMAND" in
           y|Y|yes|YES|Yes) RESTART_EXISTING=1 ;;
           *)
             echo "AutoSkin is installed but has not restarted Codex."
-            echo "Quit Codex later, then run: $0 start"
+            echo "Quit Codex later, then run: $INSTALLED_SCRIPT start"
             exit 0
             ;;
         esac
       else
         echo "AutoSkin is installed, but Codex is already open and was not restarted."
-        echo "Quit Codex and run '$0 start', or rerun install with --restart-existing."
+        echo "Quit Codex and run '$INSTALLED_SCRIPT start', or rerun install with --restart-existing."
         exit 0
       fi
     fi
 
     START_ARGS=(--port "$PORT" --app "$APP_BUNDLE" --node "$NODE_BIN")
     [ "$RESTART_EXISTING" -ne 1 ] || START_ARGS+=(--restart-existing)
-    "$SCRIPT_DIR/start-dream-skin.sh" "${START_ARGS[@]}"
+    "$(dream_state_root)/runtime/scripts/start-dream-skin.sh" "${START_ARGS[@]}"
     echo "AutoSkin installation is complete."
     ;;
 
@@ -113,7 +114,7 @@ case "$COMMAND" in
     dream_require_macos
     dream_resolve_app "$APP_PATH"
     dream_resolve_node "$NODE_PATH"
-    exec "$NODE_BIN" "$SCRIPT_DIR/set-theme.mjs" "${THEME_ARGS[@]}"
+    exec "$NODE_BIN" "$SCRIPT_DIR/set-theme.mjs" --port "$(dream_installed_port)" "${THEME_ARGS[@]}"
     ;;
 
   verify)
@@ -125,7 +126,7 @@ case "$COMMAND" in
     ;;
 
   uninstall)
-    PORT=9335
+    PORT="$(dream_installed_port)"
     APP_PATH=""
     NODE_PATH=""
     YES=0
@@ -154,7 +155,7 @@ case "$COMMAND" in
     ;;
 
   doctor)
-    PORT=9335
+    PORT="$(dream_installed_port)"
     APP_PATH=""
     NODE_PATH=""
     while [ "$#" -gt 0 ]; do

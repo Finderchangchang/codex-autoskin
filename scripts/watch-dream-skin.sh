@@ -5,7 +5,7 @@ PATH=/usr/bin:/bin:/usr/sbin:/sbin
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/mac-common.sh"
 
-PORT=9335
+PORT="$(dream_installed_port)"
 POLL_SECONDS=2
 LAUNCH_GRACE_SECONDS=15
 MAX_CONSECUTIVE_FAILURES=3

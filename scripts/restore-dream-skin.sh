@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/mac-common.sh"
 
-PORT=9335
+PORT="$(dream_installed_port)"
 UNINSTALL=0
 RESTORE_BASE_THEME=0
 NODE_PATH=""
@@ -55,9 +55,17 @@ fi
 if [ "$RESTORE_BASE_THEME" -eq 1 ]; then
   CONFIG_PATH="$HOME/.codex/config.toml"
   BACKUP_PATH="$STATE_ROOT/config.before-dream-skin.toml"
-  [ -f "$BACKUP_PATH" ] || dream_die "no pre-install config backup is available"
-  "$NODE_BIN" "$SCRIPT_DIR/configure-base-theme.mjs" \
-    --config "$CONFIG_PATH" --backup "$BACKUP_PATH" --restore
+  if [ -f "$BACKUP_PATH" ]; then
+    "$NODE_BIN" "$SCRIPT_DIR/configure-base-theme.mjs" \
+      --config "$CONFIG_PATH" --backup "$BACKUP_PATH" --restore
+  else
+    echo "No pre-install color backup was found; there is nothing to restore."
+  fi
+fi
+
+if [ "$UNINSTALL" -eq 1 ]; then
+  rm -f "$STATE_ROOT/install-state.json"
+  rm -rf "$STATE_ROOT/runtime"
 fi
 
 echo "The live Dream Skin was removed."

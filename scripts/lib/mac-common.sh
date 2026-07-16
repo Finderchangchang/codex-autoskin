@@ -39,6 +39,8 @@ dream_resolve_node() {
   if [ -n "${APP_BUNDLE:-}" ]; then
     candidates+=("$APP_BUNDLE/Contents/Resources/cua_node/bin/node")
   fi
+  candidate="$(dream_installed_value nodePath 2>/dev/null || true)"
+  [ -z "$candidate" ] || candidates+=("$candidate")
   candidates+=(
     "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node"
     "$HOME/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node"
@@ -69,7 +71,10 @@ dream_resolve_app() {
     candidate="${requested%/}"
   else
     local path candidate_id
+    local installed_app
+    installed_app="$(dream_installed_value appPath 2>/dev/null || true)"
     for path in \
+      "$installed_app" \
       "/Applications/ChatGPT.app" \
       "$HOME/Applications/ChatGPT.app" \
       "/Applications/Codex.app" \
@@ -102,6 +107,30 @@ dream_resolve_app() {
 
 dream_state_root() {
   printf '%s\n' "$HOME/Library/Application Support/CodexDreamSkin"
+}
+
+dream_install_state_path() {
+  printf '%s/install-state.json\n' "$(dream_state_root)"
+}
+
+dream_installed_value() {
+  local key="$1" state
+  state="$(dream_install_state_path)"
+  [ -f "$state" ] || return 1
+  /usr/bin/plutil -extract "$key" raw -o - "$state" 2>/dev/null
+}
+
+dream_installed_port() {
+  local port
+  port="$(dream_installed_value port 2>/dev/null || true)"
+  case "$port" in
+    ''|*[!0-9]*) printf '9335\n'; return ;;
+  esac
+  if [ "$port" -ge 1024 ] && [ "$port" -le 65535 ]; then
+    printf '%s\n' "$port"
+  else
+    printf '9335\n'
+  fi
 }
 
 dream_cdp_ready() {

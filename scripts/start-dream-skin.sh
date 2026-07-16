@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/mac-common.sh"
 
-PORT=9335
+PORT="$(dream_installed_port)"
 RESTART_EXISTING=0
 PROFILE_PATH=""
 FOREGROUND_INJECTOR=0

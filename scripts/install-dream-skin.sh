@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/mac-common.sh"
 
-PORT=9335
+PORT="$(dream_installed_port)"
 NO_AUTO_RECOVER=0
 APP_PATH=""
 NODE_PATH=""
@@ -26,20 +26,41 @@ dream_resolve_app "$APP_PATH"
 dream_resolve_node "$NODE_PATH"
 
 STATE_ROOT="$(dream_state_root)"
+SOURCE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+RUNTIME_ROOT="$STATE_ROOT/runtime"
+INSTALL_STATE_PATH="$STATE_ROOT/install-state.json"
 CONFIG_PATH="$HOME/.codex/config.toml"
 BACKUP_PATH="$STATE_ROOT/config.before-dream-skin.toml"
 PLIST_PATH="$HOME/Library/LaunchAgents/com.codex-autoskin.watcher.plist"
 mkdir -p "$STATE_ROOT" "$HOME/Library/LaunchAgents"
 [ -f "$CONFIG_PATH" ] || dream_die "Codex config not found: $CONFIG_PATH"
 
-"$NODE_BIN" "$SCRIPT_DIR/configure-base-theme.mjs" \
+launchctl bootout "gui/$UID/com.codex-autoskin.watcher" >/dev/null 2>&1 || true
+WATCHER_STATE_PATH="$STATE_ROOT/watcher-state.json"
+if [ -f "$WATCHER_STATE_PATH" ]; then
+  WATCHER_PID="$(dream_read_json_number "$WATCHER_STATE_PATH" watcherPid 2>/dev/null || true)"
+  [ -z "$WATCHER_PID" ] || dream_stop_pid_if_matches "$WATCHER_PID" "watch-dream-skin.sh"
+fi
+rm -f "$WATCHER_STATE_PATH"
+rm -rf "$STATE_ROOT/watcher.lock"
+INJECTOR_STATE_PATH="$STATE_ROOT/state.json"
+if [ -f "$INJECTOR_STATE_PATH" ]; then
+  INJECTOR_PID="$(dream_read_json_number "$INJECTOR_STATE_PATH" injectorPid 2>/dev/null || true)"
+  [ -z "$INJECTOR_PID" ] || dream_stop_pid_if_matches "$INJECTOR_PID" "injector.mjs"
+  rm -f "$INJECTOR_STATE_PATH"
+fi
+
+"$NODE_BIN" "$SCRIPT_DIR/sync-macos-runtime.mjs" \
+  --source "$SOURCE_ROOT" --destination "$RUNTIME_ROOT" >/dev/null
+RUNTIME_SCRIPTS="$RUNTIME_ROOT/scripts"
+
+"$NODE_BIN" "$RUNTIME_SCRIPTS/configure-base-theme.mjs" \
   --config "$CONFIG_PATH" --backup "$BACKUP_PATH" --platform darwin
 
 if [ "$NO_AUTO_RECOVER" -ne 1 ]; then
-  launchctl bootout "gui/$UID/com.codex-autoskin.watcher" >/dev/null 2>&1 || true
-  "$NODE_BIN" "$SCRIPT_DIR/macos-launch-agent.mjs" \
+  "$NODE_BIN" "$RUNTIME_SCRIPTS/macos-launch-agent.mjs" \
     --output "$PLIST_PATH" \
-    --watcher "$SCRIPT_DIR/watch-dream-skin.sh" \
+    --watcher "$RUNTIME_SCRIPTS/watch-dream-skin.sh" \
     --node "$NODE_BIN" \
     --app "$APP_BUNDLE" \
     --port "$PORT" \
@@ -49,9 +70,18 @@ if [ "$NO_AUTO_RECOVER" -ne 1 ]; then
   launchctl bootstrap "gui/$UID" "$PLIST_PATH"
   launchctl kickstart -k "gui/$UID/com.codex-autoskin.watcher" >/dev/null
 else
-  launchctl bootout "gui/$UID/com.codex-autoskin.watcher" >/dev/null 2>&1 || true
   rm -f "$PLIST_PATH"
 fi
 
+"$NODE_BIN" -e '
+  const fs = require("fs");
+  const [file, port, appPath, nodePath, runtimeRoot, sourceRoot] = process.argv.slice(1);
+  fs.writeFileSync(file, JSON.stringify({
+    port: Number(port), appPath, nodePath, runtimeRoot, sourceRoot,
+    installedAt: new Date().toISOString(), platform: "darwin"
+  }, null, 2) + "\n");
+' "$INSTALL_STATE_PATH" "$PORT" "$APP_BUNDLE" "$NODE_BIN" "$RUNTIME_ROOT" "$SOURCE_ROOT"
+
 echo "Codex Dream Skin installed for macOS."
-echo "Launch it with: $SCRIPT_DIR/start-dream-skin.sh"
+echo "Installed runtime: $RUNTIME_ROOT"
+echo "Launch it with: $RUNTIME_SCRIPTS/autoskin-macos.sh start"
