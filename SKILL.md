@@ -16,8 +16,9 @@ Themes are data, not code: the injector scans `themes/` and `themes-private/` fo
 2. Start with the platform script: `scripts/start-dream-skin.ps1` or `scripts/start-dream-skin.sh`. Add `-RestartExisting` / `--restart-existing` only when the user authorized restarting an already-open Codex app.
 3. Verify after launch: Windows uses `scripts/verify-dream-skin.ps1 -ScreenshotPath <absolute-path>`; macOS uses `scripts/verify-dream-skin.sh --screenshot <absolute-path>`. Treat a missing hero, native composer, sidebar skin, or injection marker as failure. The native suggestion count is responsive and may be two to four.
 4. Switch themes/layouts programmatically: `node scripts/set-theme.mjs <theme> [banner|fullscreen]` (or `--list`). There is intentionally no on-screen switch UI; the choice persists via localStorage and survives reloads and watcher-recovered restarts.
-5. Inspect the screenshot against `references/qa-inventory.md`. Verify every scanned theme in both home layouts before signing off; `node scripts/injector.mjs --themes` lists what was scanned.
-6. Run the platform `restore-dream-skin` script for live removal. Add `-Uninstall -RestoreBaseTheme` on Windows or `--uninstall --restore-base-theme` on macOS for a full uninstall with pre-install colors restored.
+5. On macOS, turn a PNG/JPG into a private theme with `scripts/autoskin-macos.sh quick-theme <image> [--name name] [--layout fullscreen|banner]`. It uses built-in `sips` sampling, writes the same 28-token schema as Windows quick-theme, reloads the injector, and applies the theme when AutoSkin is already active.
+6. Inspect the screenshot against `references/qa-inventory.md`. Verify every scanned theme in both home layouts before signing off; `node scripts/injector.mjs --themes` lists what was scanned.
+7. Run the platform `restore-dream-skin` script for live removal. Add `-Uninstall -RestoreBaseTheme` on Windows or `--uninstall --restore-base-theme` on macOS for a full uninstall with pre-install colors restored.
 
 ## Guardrails
 
@@ -42,6 +43,7 @@ Themes are data, not code: the injector scans `themes/` and `themes-private/` fo
 - `scripts/injector.mjs`: theme scanning/validation, payload generation, CDP injection, auxiliary-window transparency protection, verification (`--verify`), theme report (`--themes`), CDP screenshot on supported builds, and removal. macOS window screenshots use `scripts/macos-capture.mjs` through the verify wrapper.
 - `scripts/autoskin-macos.sh`, `Install AutoSkin on macOS.command`, `Uninstall AutoSkin on macOS.command`: simplified macOS command-line and Finder entry points layered over the advanced scripts.
 - `scripts/sync-macos-runtime.mjs`: atomically installs a self-contained macOS runtime so LaunchAgent recovery does not depend on the source checkout remaining in place.
+- `scripts/generate-quick-theme-macos.mjs`, `scripts/quick-theme-macos.sh`, `Create AutoSkin Theme on macOS.command`: dependency-free macOS image sampling, safe theme generation, live reload, and Finder entry point.
 - `scripts/set-theme.mjs`: programmatic theme/layout switching against the running instance.
 - `scripts/watch-dream-skin.ps1`, `scripts/watch-dream-skin.sh`: platform single-instance watchers that restore the skin after an ordinary Codex restart and repair a missing injector.
 - `styles/dream/style.css`: structure layer; consumes tokens only, contains no theme names.

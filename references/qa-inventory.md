@@ -37,7 +37,8 @@
 - macOS simple install: with `PATH` restricted to system utilities and no external `node`, `autoskin-macos.sh install --no-start --no-auto-recover` uses the official app's bundled Node.js, applies the base theme, creates the backup, and does not install a LaunchAgent.
 - macOS stable install: after installation, move the source checkout and confirm the installed runtime can still start, verify, switch themes, auto-recover, and uninstall. Reinstalling atomically refreshes the runtime without leaving the old watcher/injector alive.
 - macOS remembered defaults: install with a non-default port and app path, then run `start`, `theme`, `verify`, `doctor`, and `uninstall` without repeating them; each command must use `install-state.json`. Full uninstall must succeed repeatedly even when no base-color backup remains.
-- macOS Finder entry points: the install and uninstall `.command` files are executable, resolve paths relative to themselves, surface failures without closing immediately, and require confirmation before restarting or uninstalling.
+- macOS quick-theme: generate one light and one dark route from PNG/JPG fixtures, confirm exactly 28 tokens and valid injector discovery, repeat generation safely, reject a built-in/manual name collision, refresh the stable runtime, and confirm private themes survive. When CDP is active, reload without restarting Codex and apply the requested layout.
+- macOS Finder entry points: the install, image-to-theme, and uninstall `.command` files are executable, resolve paths relative to themselves, surface failures without closing immediately, use a native file chooser for theme art, and require confirmation before restarting or uninstalling.
 
 ## Visual checks
 

@@ -11,6 +11,7 @@ Codex AutoSkin for macOS
 Usage:
   scripts/autoskin-macos.sh install [options]
   scripts/autoskin-macos.sh start [start options]
+  scripts/autoskin-macos.sh quick-theme <image> [--name NAME] [--layout LAYOUT]
   scripts/autoskin-macos.sh theme <name> [banner|fullscreen] [--port PORT]
   scripts/autoskin-macos.sh verify [verify options]
   scripts/autoskin-macos.sh doctor [--port PORT] [--app PATH]
@@ -98,6 +99,10 @@ case "$COMMAND" in
 
   start)
     exec "$SCRIPT_DIR/start-dream-skin.sh" "$@"
+    ;;
+
+  quick-theme|create-theme)
+    exec "$SCRIPT_DIR/quick-theme-macos.sh" "$@"
     ;;
 
   theme)

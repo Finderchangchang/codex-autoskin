@@ -16,7 +16,6 @@ function parseArgs(argv) {
 }
 
 const REQUIRED_ENTRIES = ["scripts", "assets", "styles", "themes"];
-const OPTIONAL_ENTRIES = ["themes-private"];
 const options = parseArgs(process.argv.slice(2));
 
 if (options.source === options.destination) {
@@ -30,9 +29,11 @@ for (const entry of REQUIRED_ENTRIES) {
 }
 
 const parent = path.dirname(options.destination);
+const privateThemes = path.join(parent, "themes-private");
 const next = `${options.destination}.next-${process.pid}`;
 const previous = `${options.destination}.previous-${process.pid}`;
 await fs.mkdir(parent, { recursive: true });
+await fs.mkdir(privateThemes, { recursive: true });
 await fs.rm(next, { recursive: true, force: true });
 await fs.rm(previous, { recursive: true, force: true });
 await fs.mkdir(next, { recursive: true });
@@ -44,12 +45,16 @@ try {
       preserveTimestamps: true,
     });
   }
-  for (const entry of OPTIONAL_ENTRIES) {
-    const source = path.join(options.source, entry);
-    if (await fs.stat(source).catch(() => null)) {
-      await fs.cp(source, path.join(next, entry), { recursive: true, preserveTimestamps: true });
+  const sourcePrivateThemes = path.join(options.source, "themes-private");
+  const sourcePrivateStat = await fs.stat(sourcePrivateThemes).catch(() => null);
+  if (sourcePrivateStat) {
+    const sourceReal = await fs.realpath(sourcePrivateThemes);
+    const destinationReal = await fs.realpath(privateThemes);
+    if (sourceReal !== destinationReal) {
+      await fs.cp(sourcePrivateThemes, privateThemes, { recursive: true, preserveTimestamps: true });
     }
   }
+  await fs.symlink("../themes-private", path.join(next, "themes-private"), "dir");
   await fs.writeFile(path.join(next, ".runtime.json"), JSON.stringify({
     installedAt: new Date().toISOString(),
     sourceRoot: options.source,

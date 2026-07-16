@@ -17,6 +17,7 @@ while IFS= read -r script; do
 done < <(find "$ROOT/scripts" -type f -name '*.sh' -print | sort)
 while IFS= read -r command_file; do
   /bin/bash -n "$command_file"
+  [ -x "$command_file" ] || fail "Finder entry point is not executable: $command_file"
 done < <(find "$ROOT" -maxdepth 1 -type f -name '*.command' -print | sort)
 while IFS= read -r module; do
   "$NODE_BIN" --check "$module"
@@ -63,10 +64,69 @@ RUNTIME_ROOT="$TMP_ROOT/runtime"
 for entry in scripts assets styles themes .runtime.json; do
   [ -e "$RUNTIME_ROOT/$entry" ] || fail "runtime is missing $entry"
 done
+[ -L "$RUNTIME_ROOT/themes-private" ] || fail "runtime private themes are not linked to durable storage"
 [ -x "$RUNTIME_ROOT/scripts/autoskin-macos.sh" ] || fail "runtime scripts lost executable permissions"
 "$NODE_BIN" "$ROOT/scripts/sync-macos-runtime.mjs" \
   --source "$ROOT" --destination "$RUNTIME_ROOT" >/dev/null
 "$NODE_BIN" "$RUNTIME_ROOT/scripts/injector.mjs" --themes >/dev/null
+
+echo "Checking one-image theme generation..."
+"$NODE_BIN" "$ROOT/scripts/generate-quick-theme-macos.mjs" \
+  --image "$ROOT/themes/ember-bloom/art.png" \
+  --name ci-quick-theme \
+  --themes-root "$RUNTIME_ROOT/themes-private" \
+  --reserved-root "$RUNTIME_ROOT/themes" >"$TMP_ROOT/quick-theme-result.json"
+"$NODE_BIN" -e '
+  const fs = require("fs");
+  const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+  if (!result.ok || result.route !== "light") throw new Error("unexpected generated theme report");
+  if (manifest.notes.generator !== "quick-theme") throw new Error("generator marker is missing");
+  if (Object.keys(manifest.tokens).length !== 28) throw new Error("generated theme must contain 28 tokens");
+' "$TMP_ROOT/quick-theme-result.json" "$TMP_ROOT/themes-private/ci-quick-theme/theme.json"
+"$NODE_BIN" "$ROOT/scripts/generate-quick-theme-macos.mjs" \
+  --image "$ROOT/themes/ember-bloom/art.png" \
+  --name ci-quick-theme \
+  --themes-root "$RUNTIME_ROOT/themes-private" \
+  --reserved-root "$RUNTIME_ROOT/themes" >/dev/null
+"$NODE_BIN" "$ROOT/scripts/sync-macos-runtime.mjs" \
+  --source "$ROOT" --destination "$RUNTIME_ROOT" >/dev/null
+[ -f "$TMP_ROOT/themes-private/ci-quick-theme/theme.json" ] || fail "runtime refresh deleted a generated theme"
+"$NODE_BIN" "$RUNTIME_ROOT/scripts/injector.mjs" --themes >"$TMP_ROOT/runtime-themes.json"
+"$NODE_BIN" -e '
+  const report = require(process.argv[1]);
+  if (!report.themes.some((theme) => theme.name === "ci-quick-theme" && theme.source === "themes-private")) {
+    throw new Error("generated private theme was not discovered");
+  }
+' "$TMP_ROOT/runtime-themes.json"
+if "$NODE_BIN" "$ROOT/scripts/generate-quick-theme-macos.mjs" \
+  --image "$ROOT/themes/ember-bloom/art.png" \
+  --name aurora-veil \
+  --themes-root "$RUNTIME_ROOT/themes-private" \
+  --reserved-root "$RUNTIME_ROOT/themes" >/dev/null 2>&1; then
+  fail "quick-theme overwrote a built-in theme"
+fi
+/usr/bin/sips -s format jpeg "$ROOT/themes/aurora-veil/art.png" --out "$TMP_ROOT/夜空.jpg" >/dev/null
+"$NODE_BIN" "$ROOT/scripts/generate-quick-theme-macos.mjs" \
+  --image "$TMP_ROOT/夜空.jpg" \
+  --themes-root "$RUNTIME_ROOT/themes-private" \
+  --reserved-root "$RUNTIME_ROOT/themes" >"$TMP_ROOT/auto-name-result.json"
+"$NODE_BIN" -e '
+  const fs = require("fs");
+  const result = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  const manifest = JSON.parse(fs.readFileSync(`${result.themeDirectory}/theme.json`, "utf8"));
+  if (!/^my-theme-[a-f0-9]{6}$/.test(result.name)) throw new Error("non-Latin filename fallback is invalid");
+  if (manifest.art.home !== "art.jpg" || result.route !== "dark") throw new Error("JPG dark-route generation failed");
+' "$TMP_ROOT/auto-name-result.json"
+mkdir -p "$TMP_ROOT/themes-private/manual-theme"
+printf '{}\n' >"$TMP_ROOT/themes-private/manual-theme/theme.json"
+if "$NODE_BIN" "$ROOT/scripts/generate-quick-theme-macos.mjs" \
+  --image "$ROOT/themes/ember-bloom/art.png" \
+  --name manual-theme \
+  --themes-root "$RUNTIME_ROOT/themes-private" \
+  --reserved-root "$RUNTIME_ROOT/themes" >/dev/null 2>&1; then
+  fail "quick-theme overwrote a manually-authored theme"
+fi
 
 echo "Checking LaunchAgent generation..."
 PLIST_PATH="$TMP_ROOT/com.codex-autoskin.watcher.plist"
@@ -118,6 +178,16 @@ HOME="$TEST_HOME" /bin/bash -c '
   . "$1/runtime/scripts/lib/mac-common.sh"
   [ "$(dream_installed_port)" = "19337" ]
 ' test "$INSTALLED_ROOT"
+HOME="$TEST_HOME" "$INSTALLED_ROOT/runtime/scripts/autoskin-macos.sh" quick-theme \
+  "$ROOT/themes/aurora-veil/art.png" --name installed-quick-theme --no-apply --node "$NODE_BIN" >/dev/null
+[ -f "$INSTALLED_ROOT/themes-private/installed-quick-theme/theme.json" ] || fail "installed quick-theme did not persist its theme"
+"$NODE_BIN" "$INSTALLED_ROOT/runtime/scripts/injector.mjs" --themes >"$TMP_ROOT/installed-themes.json"
+"$NODE_BIN" -e '
+  const report = require(process.argv[1]);
+  if (!report.themes.some((theme) => theme.name === "installed-quick-theme")) {
+    throw new Error("installed runtime did not discover its generated theme");
+  }
+' "$TMP_ROOT/installed-themes.json"
 
 echo "Checking repeatable uninstall without a backup..."
 rm -f "$INSTALLED_ROOT/config.before-dream-skin.toml"
