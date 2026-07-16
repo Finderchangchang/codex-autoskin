@@ -34,6 +34,8 @@
 - Update resilience: Windows resolves the current `OpenAI.Codex` Appx location dynamically; macOS discovers `ChatGPT.app` / `Codex.app` and reads `CFBundleExecutable` from `Info.plist`. Never store a versioned executable path.
 - macOS lifecycle: launch the app bundle through LaunchServices and confirm it remains alive after the invoking shell exits; do not execute `Contents/MacOS/ChatGPT` directly.
 - macOS screenshot: `verify-dream-skin.sh --screenshot <path>` captures the Codex window itself by Quartz window ID even when another app overlaps it; it must not use CDP `Page.captureScreenshot`.
+- macOS simple install: with `PATH` restricted to system utilities and no external `node`, `autoskin-macos.sh install --no-start --no-auto-recover` uses the official app's bundled Node.js, applies the base theme, creates the backup, and does not install a LaunchAgent.
+- macOS Finder entry points: the install and uninstall `.command` files are executable, resolve paths relative to themselves, surface failures without closing immediately, and require confirmation before restarting or uninstalling.
 
 ## Visual checks
 

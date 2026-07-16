@@ -2,20 +2,27 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SCRIPT_DIR/lib/mac-common.sh"
 PORT=9335
 SCREENSHOT=""
+APP_PATH=""
+NODE_PATH=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --port) PORT="$2"; shift 2 ;;
     --screenshot) SCREENSHOT="$2"; shift 2 ;;
-    -h|--help) echo "Usage: $0 [--port 9335] [--screenshot /absolute/path.png]"; exit 0 ;;
-    *) echo "dream-skin: unknown argument: $1" >&2; exit 1 ;;
+    --app) APP_PATH="$2"; shift 2 ;;
+    --node) NODE_PATH="$2"; shift 2 ;;
+    -h|--help) echo "Usage: $0 [--port 9335] [--screenshot /absolute/path.png] [--app PATH]"; exit 0 ;;
+    *) dream_die "unknown argument: $1" ;;
   esac
 done
 
-NODE_BIN="$(command -v node 2>/dev/null || true)"
-[ -n "$NODE_BIN" ] || { echo "dream-skin: Node.js >= 20 is required" >&2; exit 1; }
+dream_require_macos
+dream_validate_port "$PORT"
+dream_resolve_app "$APP_PATH"
+dream_resolve_node "$NODE_PATH"
 ARGS=("$SCRIPT_DIR/injector.mjs" --verify --port "$PORT")
 "$NODE_BIN" "${ARGS[@]}"
 if [ -n "$SCREENSHOT" ]; then

@@ -22,8 +22,8 @@ done
 
 dream_require_macos
 dream_validate_port "$PORT"
-dream_resolve_node "$NODE_PATH"
 dream_resolve_app "$APP_PATH"
+dream_resolve_node "$NODE_PATH"
 
 STATE_ROOT="$(dream_state_root)"
 CONFIG_PATH="$HOME/.codex/config.toml"

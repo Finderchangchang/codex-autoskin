@@ -22,19 +22,44 @@ dream_resolve_node() {
   local requested="${1:-}"
   if [ -n "$requested" ]; then
     [ -x "$requested" ] || dream_die "Node.js executable not found: $requested"
+    local requested_major
+    requested_major="$($requested -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || true)"
+    case "$requested_major" in
+      ''|*[!0-9]*) dream_die "could not determine Node.js version from $requested" ;;
+    esac
+    [ "$requested_major" -ge 20 ] || dream_die "Node.js >= 20 is required (found $($requested --version))"
     NODE_BIN="$requested"
-  else
-    NODE_BIN="$(command -v node 2>/dev/null || true)"
-    [ -n "$NODE_BIN" ] || dream_die "Node.js >= 20 is required"
+    export NODE_BIN
+    return
   fi
 
-  local major
-  major="$($NODE_BIN -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || true)"
-  case "$major" in
-    ''|*[!0-9]*) dream_die "could not determine Node.js version from $NODE_BIN" ;;
-  esac
-  [ "$major" -ge 20 ] || dream_die "Node.js >= 20 is required (found $($NODE_BIN --version))"
-  export NODE_BIN
+  local system_node="" candidate major
+  system_node="$(command -v node 2>/dev/null || true)"
+  local candidates=("$system_node")
+  if [ -n "${APP_BUNDLE:-}" ]; then
+    candidates+=("$APP_BUNDLE/Contents/Resources/cua_node/bin/node")
+  fi
+  candidates+=(
+    "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node"
+    "$HOME/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node"
+    "/Applications/Codex.app/Contents/Resources/cua_node/bin/node"
+    "$HOME/Applications/Codex.app/Contents/Resources/cua_node/bin/node"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    [ -n "$candidate" ] && [ -x "$candidate" ] || continue
+    major="$($candidate -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || true)"
+    case "$major" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    if [ "$major" -ge 20 ]; then
+      NODE_BIN="$candidate"
+      export NODE_BIN
+      return
+    fi
+  done
+
+  dream_die "Node.js >= 20 was not found. Install Node.js or update the official Codex app."
 }
 
 dream_resolve_app() {

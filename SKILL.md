@@ -12,7 +12,7 @@ Themes are data, not code: the injector scans `themes/` and `themes-private/` fo
 
 ## Workflow
 
-1. Install once: Windows uses `scripts/install-dream-skin.ps1`; macOS uses `scripts/install-dream-skin.sh`. Both set matching base colors and install the auto-recovery watcher. Use `-NoAutoRecover` / `--no-auto-recover` only when the user explicitly does not want normal Codex restarts intercepted.
+1. Install once: Windows uses `scripts/install-dream-skin.ps1`; macOS should prefer the unified `scripts/autoskin-macos.sh install` entry point (or the advanced `scripts/install-dream-skin.sh`). Both set matching base colors and install the auto-recovery watcher. Use `-NoAutoRecover` / `--no-auto-recover` only when the user explicitly does not want normal Codex restarts intercepted. The macOS wrapper automatically uses the Node.js runtime bundled with the official Codex app when no compatible system Node is available.
 2. Start with the platform script: `scripts/start-dream-skin.ps1` or `scripts/start-dream-skin.sh`. Add `-RestartExisting` / `--restart-existing` only when the user authorized restarting an already-open Codex app.
 3. Verify after launch: Windows uses `scripts/verify-dream-skin.ps1 -ScreenshotPath <absolute-path>`; macOS uses `scripts/verify-dream-skin.sh --screenshot <absolute-path>`. Treat a missing hero, native composer, sidebar skin, or injection marker as failure. The native suggestion count is responsive and may be two to four.
 4. Switch themes/layouts programmatically: `node scripts/set-theme.mjs <theme> [banner|fullscreen]` (or `--list`). There is intentionally no on-screen switch UI; the choice persists via localStorage and survives reloads and watcher-recovered restarts.
@@ -40,6 +40,7 @@ Themes are data, not code: the injector scans `themes/` and `themes-private/` fo
 
 - `THEME-SPEC.md`: agent-facing spec for authoring themes (schema, 28 tokens, crop workflow, clean-art vs UI-screenshot decision tree, acceptance checklist).
 - `scripts/injector.mjs`: theme scanning/validation, payload generation, CDP injection, auxiliary-window transparency protection, verification (`--verify`), theme report (`--themes`), CDP screenshot on supported builds, and removal. macOS window screenshots use `scripts/macos-capture.mjs` through the verify wrapper.
+- `scripts/autoskin-macos.sh`, `Install AutoSkin on macOS.command`, `Uninstall AutoSkin on macOS.command`: simplified macOS command-line and Finder entry points layered over the advanced scripts.
 - `scripts/set-theme.mjs`: programmatic theme/layout switching against the running instance.
 - `scripts/watch-dream-skin.ps1`, `scripts/watch-dream-skin.sh`: platform single-instance watchers that restore the skin after an ordinary Codex restart and repair a missing injector.
 - `styles/dream/style.css`: structure layer; consumes tokens only, contains no theme names.

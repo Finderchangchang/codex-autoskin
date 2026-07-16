@@ -8,6 +8,7 @@ PORT=9335
 UNINSTALL=0
 RESTORE_BASE_THEME=0
 NODE_PATH=""
+APP_PATH=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -15,13 +16,15 @@ while [ "$#" -gt 0 ]; do
     --uninstall) UNINSTALL=1; shift ;;
     --restore-base-theme) RESTORE_BASE_THEME=1; shift ;;
     --node) [ "$#" -ge 2 ] || dream_die "--node requires a value"; NODE_PATH="$2"; shift 2 ;;
-    -h|--help) echo "Usage: $0 [--port 9335] [--uninstall] [--restore-base-theme]"; exit 0 ;;
+    --app) [ "$#" -ge 2 ] || dream_die "--app requires a value"; APP_PATH="$2"; shift 2 ;;
+    -h|--help) echo "Usage: $0 [--port 9335] [--uninstall] [--restore-base-theme] [--app PATH]"; exit 0 ;;
     *) dream_die "unknown argument: $1" ;;
   esac
 done
 
 dream_require_macos
 dream_validate_port "$PORT"
+[ -z "$APP_PATH" ] || dream_resolve_app "$APP_PATH"
 dream_resolve_node "$NODE_PATH"
 
 STATE_ROOT="$(dream_state_root)"
