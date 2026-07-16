@@ -100,6 +100,6 @@ echo "==> 重载主题并立即应用"
   --port "$PORT" "$THEME_NAME" "$LAYOUT" >/dev/null
 
 echo ""
-echo "完成！'${THEME_NAME}' 已应用到 Codex（$LAYOUT）。"
+echo "完成！'${THEME_NAME}' 已应用到 Codex（${LAYOUT}）。"
 echo "切换版式：$ACTIVE_ROOT/scripts/autoskin-macos.sh theme $THEME_NAME banner"
 echo "想精修时，可以让 agent 按 THEME-SPEC.md 调整这个主题。"

@@ -22,6 +22,22 @@ done < <(find "$ROOT" -maxdepth 1 -type f -name '*.command' -print | sort)
 while IFS= read -r module; do
   "$NODE_BIN" --check "$module"
 done < <(find "$ROOT/scripts" -type f -name '*.mjs' -print | sort)
+"$NODE_BIN" -e '
+  const fs = require("fs");
+  const path = require("path");
+  const files = [
+    ...fs.readdirSync(process.argv[1]).filter((name) => name.endsWith(".command")).map((name) => path.join(process.argv[1], name)),
+    ...fs.readdirSync(path.join(process.argv[1], "scripts")).filter((name) => name.endsWith(".sh")).map((name) => path.join(process.argv[1], "scripts", name)),
+  ];
+  const unsafe = [];
+  for (const file of files) {
+    const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+    lines.forEach((line, index) => {
+      if (/\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7f]/.test(line)) unsafe.push(`${file}:${index + 1}: ${line.trim()}`);
+    });
+  }
+  if (unsafe.length) throw new Error(`brace shell variables before non-ASCII text:\n${unsafe.join("\n")}`);
+' "$ROOT"
 
 echo "Checking theme discovery..."
 THEME_REPORT="$TMP_ROOT/themes.json"
