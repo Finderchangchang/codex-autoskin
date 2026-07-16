@@ -13,9 +13,9 @@
 
 ## 换图步骤
 
-1. **停 watcher**（防止它在注入器被杀时抢救）：读 `%LOCALAPPDATA%\CodexDreamSkin\watcher-state.json` 拿 PID，`Stop-Process`。测完必须重启（见下）。
-2. **停注入守护**：读 `state.json` 拿 injectorPid，`Stop-Process`。守护持有旧 payload，不停它会在页面 reload 时回灌旧图。
-3. **备份旧图**：挪到 `%LOCALAPPDATA%\CodexDreamSkin\retired-themes\<theme>-v1\art-v1.png`（不要留在主题文件夹里，避免误入仓库/payload）。
+1. **停 watcher**（防止它在注入器被杀时抢救）：Windows 从 `%LOCALAPPDATA%\CodexDreamSkin\watcher-state.json` 取 PID 后 `Stop-Process`；macOS 从 `~/Library/Application Support/CodexDreamSkin/watcher-state.json` 取 PID 后 `kill`。测完必须重启（见下）。
+2. **停注入守护**：从平台状态目录的 `state.json` 取 injectorPid 后停止进程。守护持有旧 payload，不停它会在页面 reload 时回灌旧图。
+3. **备份旧图**：挪到平台状态目录下的 `retired-themes/<theme>-v1/art-v1.png`（不要留在主题文件夹里，避免误入仓库/payload）。
 4. **换图**：新图拷成 `themes*/<theme>/art.png`（保持 theme.json 的 art 文件名不变最省事）。
 5. **改 theme.json tokens**：抄 §5.1 场景预设作为起点，再按图微调（见下"最终参数"）。
    干净场景图的遮罩要比"压鬼影"时代**轻得多**：径向 overlay 首档 ≈.68（旧值 .92+），wash 每档 ≤.25，否则饱和度全没。

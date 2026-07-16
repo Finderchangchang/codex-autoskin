@@ -2,7 +2,7 @@
 
 **发一张图给你的 Codex，它自己给自己换肤。**
 
-这是 Windows Codex 桌面端的换肤引擎 2.0 版：不改任何官方文件，通过 Chromium DevTools Protocol（CDP）把皮肤"注入"到官方渲染器里，随时一键还原。**上手只要两条命令、两分钟、不需要 AI**：`quickstart.ps1` 装好引擎，`quick-theme.ps1 -Image 你的图.png` 自动取色、把任意一张图变成你的专属主题。主题是纯数据（一个文件夹：`theme.json` + 一张图），而配套的 [THEME-SPEC.md](THEME-SPEC.md) 是一份**写给 AI agent 读的定制规范**——想精修时，把这个仓库和一张图丢给你的 Codex / Claude，它就能照着规范自己产出一套完整主题、自己截图调参、自己交付。你的 Codex，自己给自己换肤。
+这是 Windows 与 macOS Codex 桌面端的换肤引擎 2.0 版：不改任何官方文件，通过 Chromium DevTools Protocol（CDP）把皮肤"注入"到官方渲染器里，随时一键还原。Windows 上手只要两条命令、两分钟、不需要 AI：`quickstart.ps1` 装好引擎，`quick-theme.ps1 -Image 你的图.png` 自动取色、把任意一张图变成你的专属主题；macOS 提供一键安装与自恢复守护。主题是纯数据（一个文件夹：`theme.json` + 一张图），而配套的 [THEME-SPEC.md](THEME-SPEC.md) 是一份**写给 AI agent 读的定制规范**——想精修时，把这个仓库和一张图丢给你的 Codex / Claude，它就能照着规范自己产出一套完整主题、自己截图调参、自己交付。你的 Codex，自己给自己换肤。
 
 | Aurora Veil（内置 demo） | Ember Bloom（内置 demo） |
 |---|---|
@@ -26,11 +26,11 @@
 5. **风格包 v1.2 视觉**——花饰边框卡片、渐变圆徽章 + 可配置定制图标、建议卡副标题、可配置装饰贴纸（气泡/推广牌/角饰，默认关闭）、输入框占位文案，全部是主题里的可选声明字段，向后兼容。
 6. **久经实战的健壮性**——这些坑都替你踩完了：CDP 回环双栈探测（Chromium 重启后可能只绑 `[::1]`）、watcher 防抖 + 频率熔断（绝不把 Codex 打进重启死循环）、换图 blob 指纹修复（换图重注入不再吃旧缓存）、`elementsFromPoint` 命中测试 QA（装饰层永远不吃掉真实控件的点击）。细节见 `references/runtime-notes.md`。
 
-**目前的边界（诚实版）**：仅支持 Windows 上的 Store 版 Codex 桌面端。macOS 在路线图上——引擎的注入/manifest 层是跨平台的 Node.js，主要缺一个 mac 的启动与守护适配，**欢迎 PR**（见 [CONTRIBUTING.md](CONTRIBUTING.md)）。
+**平台支持**：Windows Store 版 Codex 与 macOS 官方 Codex 桌面端。macOS 安装器会自动识别官方当前使用的 `ChatGPT.app`（bundle id `com.openai.codex`），也兼容未来可能使用的 `Codex.app` 名称；安装在非标准位置时可传 `--app`。
 
-## 快速开始（两条命令）
+## 快速开始
 
-宗旨只有一个：**解决冷启动**——从拿到仓库到"自己的图亮在 Codex 上"，两条命令、两分钟，不需要 AI，不需要懂任何概念。
+### Windows：两条命令生成自己的主题
 
 前提：Windows 10/11、Microsoft Store 版 Codex（打开并登录过一次）、[Node.js ≥ 20](https://nodejs.org/zh-cn)。
 
@@ -43,6 +43,16 @@
 > **更懒的方式**（如果你有 Codex / Claude 这类 agent）：把整个仓库丢给它，说 **"安装这个皮肤"**，剩下的它自己搞定。
 >
 > 脚本名和内部标识沿用 `dream` 前缀——那是默认皮肤的名字，也算对 v1 的致敬。
+
+### macOS：安装并启动
+
+```bash
+scripts/install-dream-skin.sh                              # 一次性：配色备份 + LaunchAgent 自恢复守护
+scripts/start-dream-skin.sh                                # 启动带调试端口的 Codex 并注入
+scripts/verify-dream-skin.sh --screenshot "$PWD/shot.png" # 验证 + 精确窗口截图
+```
+
+如果 Codex 已经打开，安装 watcher 不会打断当前实例，启动器也默认拒绝重启；确认可以重启时加 `--restart-existing`。非标准安装路径使用 `--app /path/to/ChatGPT.app`。
 
 ### 对图片的要求
 
@@ -73,10 +83,10 @@ scripts\restore-dream-skin.ps1                    # 一键还原官方外观
 
 ## 工作原理与安全
 
-- **CDP 注入**：以 `--remote-debugging-port=9335` 启动 Store 版官方 `ChatGPT.exe`，通过 DevTools 协议往主渲染器注入一段 CSS + JS。端口只绑定**本机回环**，不要暴露到局域网。
-- **不改任何官方文件**：不碰 `WindowsApps`、不碰 `app.asar`、不替换任何可执行文件，登录态/会话/插件全部保持原样。
-- **随时还原**：`scripts\restore-dream-skin.ps1` 现场移除所有注入内容，DOM 恢复得干干净净；加 `-Uninstall -RestoreBaseTheme` 连快捷方式和安装前的配色备份一起还原。所有运行时状态都在 `%LOCALAPPDATA%\CodexDreamSkin`，删掉即无痕。
-- **Codex 更新后**：重跑一遍 `.\quickstart.ps1` 即可，脚本每次动态发现当前 Appx 包，不存版本化路径。
+- **CDP 注入**：以 `--remote-debugging-port=9335` 启动官方 Codex（Windows 的 `ChatGPT.exe` / macOS 的 `ChatGPT.app`），通过 DevTools 协议往主渲染器注入一段 CSS + JS。端口只绑定**本机回环**，不要暴露到局域网。
+- **不改任何官方文件**：不碰 `WindowsApps`、应用 bundle 或 `app.asar`，不替换任何可执行文件，登录态/会话/插件全部保持原样。
+- **随时还原**：平台对应的 `restore-dream-skin` 脚本现场移除所有注入内容，DOM 恢复得干干净净；卸载并恢复安装前配色时，Windows 加 `-Uninstall -RestoreBaseTheme`，macOS 加 `--uninstall --restore-base-theme`。运行时状态分别位于 `%LOCALAPPDATA%\CodexDreamSkin` 和 `~/Library/Application Support/CodexDreamSkin`。
+- **Codex 更新后**：Windows 重跑 `.\quickstart.ps1`；macOS 重跑 `install` + `start`。两端都动态发现当前应用，不存版本化可执行路径。
 - **自恢复**：一个隐藏 watcher 在正常重启 Codex 后自动补皮肤（防抖、频率熔断、失败冷却，不会跟应用打架）。
 - **辅助窗口保护**：桌面宠物等 `initialRoute` 辅助渲染器永远不注入、保持透明。
 
@@ -84,6 +94,10 @@ scripts\restore-dream-skin.ps1                    # 一键还原官方外观
 
 ```powershell
 scripts\restore-dream-skin.ps1 -Uninstall -RestoreBaseTheme
+```
+
+```bash
+scripts/restore-dream-skin.sh --uninstall --restore-base-theme
 ```
 
 之后正常启动 Codex 即为纯官方状态。
@@ -105,7 +119,7 @@ scripts\restore-dream-skin.ps1 -Uninstall -RestoreBaseTheme
 
 **Send one image to your Codex, and it reskins itself.**
 
-Codex AutoSkin — a manifest-driven skin engine for the Windows Codex desktop app, a full rewrite by the author of the original CDP-injection skin known as Dream Skin (glad to see the idea spread through community forks and derivatives — that's open source working as intended).
+Codex AutoSkin — a manifest-driven skin engine for the Windows and macOS Codex desktop apps, a full rewrite by the author of the original CDP-injection skin known as Dream Skin (glad to see the idea spread through community forks and derivatives — that's open source working as intended).
 
 It injects CSS/JS into the official renderer over the Chrome DevTools Protocol — no app files are modified, fully reversible, login/session untouched, CDP bound to loopback only.
 
@@ -118,7 +132,7 @@ What's new in 2.0:
 - **Style-pack visuals** — ornamented cards, custom badge icons, card subtitles, opt-in stickers, composer placeholder — all optional per-theme declarations.
 - **Battle-tested robustness** — dual-stack loopback CDP probing, watcher debounce + circuit breaker (never kill-loops Codex), art-blob fingerprinting for image swaps, hit-testing QA so decorations never steal clicks.
 
-Currently **Windows (Store Codex) only** — macOS is on the roadmap and PRs are very welcome ([CONTRIBUTING.md](CONTRIBUTING.md)).
+Supports **Windows Store Codex and the official macOS Codex desktop app**. On macOS it discovers `ChatGPT.app` / `Codex.app`, launches through LaunchServices, installs a per-user LaunchAgent watcher, stores state under `~/Library/Application Support/CodexDreamSkin`, and captures verification screenshots by native window ID.
 
 **Quick start (two commands, ~2 minutes, no AI needed)** — prerequisites: Store-installed Codex (opened and signed in once) and [Node.js ≥ 20](https://nodejs.org/):
 
@@ -129,6 +143,8 @@ Currently **Windows (Store Codex) only** — macOS is on the roadmap and PRs are
 Image tips: PNG/JPG, landscape, ≥ 1600 px wide, subject on the right (the left side carries the title), clean art without text/watermark/UI; you are responsible for the rights to the images you use.
 
 Prefer the lazy way? Hand the repo to your Codex/Claude agent and say "install this skin". For fine-tuning (crop, copy, stickers, per-theme CSS), say "refine theme <name> following THEME-SPEC.md" — that spec turns your agent into the theme generator. Uninstall: `scripts\restore-dream-skin.ps1 -Uninstall -RestoreBaseTheme`.
+
+On macOS, run `scripts/install-dream-skin.sh` followed by `scripts/start-dream-skin.sh`; use `scripts/verify-dream-skin.sh --screenshot <path>` to verify and capture the exact Codex window. Use the corresponding restore script to uninstall and restore base colors.
 
 Bundled demo art is 100% procedurally generated (`tools/generate-demo-art.py`); no photos of real people in this repo. Do not publish themes using a real person's likeness — keep private themes in the git-ignored `themes-private/`. Decorative community project, not affiliated with OpenAI; Codex and related marks belong to their respective owners.
 

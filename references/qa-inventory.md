@@ -22,7 +22,7 @@
 - Layout switch: switch between `banner` and `fullscreen`; confirm the native suggestion buttons remain centered and the native composer remains bottom-aligned; confirm the final choice survives reload.
 - Chat route: open a real task in every theme and confirm the full chat-art layer appears only behind the task, not on the home screen.
 - Reload: use CDP `Page.reload`, wait, and confirm the injection marker returns.
-- Normal restart persistence: close all Codex processes, launch the Store `ChatGPT.exe` without debug arguments, and confirm the watcher relaunches it on port 9335 with the saved theme/layout restored.
+- Normal restart persistence: close all Codex processes, launch it normally without debug arguments, and confirm the platform watcher relaunches it on port 9335 with the saved theme/layout restored.
 - Closed-app behavior: leave Codex closed for at least two watcher polls and confirm the watcher remains idle instead of launching the app.
 - Desktop pet: confirm the `initialRoute=/avatar-overlay` renderer has no Dream Skin class, style, chrome, or state and its computed body background is transparent; reload that renderer and confirm it stays clean.
 - Restore/reapply cycle: remove live skin, verify marker absent (no `codex-dream-skin`/`dream-theme-*`/`dream-layout-*` classes, no injected nodes, no state object, no inline `--dream-*` vars, no `.dream-new-task` marker, composer placeholder back to the native text), apply again, verify marker present.
@@ -31,7 +31,9 @@
 - Stickers: only themes with a `stickers` field show them, fullscreen home only (never banner, never chat), never overlapping a native control; public demo themes ship without stickers and README screenshots must not contain personal promo text.
 - Themed placeholder: only themes with `composer.placeholder` change the home composer placeholder; the chat/task composer keeps its native placeholder in every theme.
 - Theme validation: a theme with a missing required token, a bad folder name, or an unscoped `extra.css` must be skipped/rejected with a `[dream-skin]` warning on stderr and must not break the remaining themes.
-- Update resilience: resolve the current `OpenAI.Codex` Appx location dynamically; never store a versioned WindowsApps path.
+- Update resilience: Windows resolves the current `OpenAI.Codex` Appx location dynamically; macOS discovers `ChatGPT.app` / `Codex.app` and reads `CFBundleExecutable` from `Info.plist`. Never store a versioned executable path.
+- macOS lifecycle: launch the app bundle through LaunchServices and confirm it remains alive after the invoking shell exits; do not execute `Contents/MacOS/ChatGPT` directly.
+- macOS screenshot: `verify-dream-skin.sh --screenshot <path>` captures the Codex window itself by Quartz window ID even when another app overlaps it; it must not use CDP `Page.captureScreenshot`.
 
 ## Visual checks
 
