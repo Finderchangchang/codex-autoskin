@@ -185,9 +185,110 @@ const REQUIRED_TOKENS = [
   "--dream-chat-wash",
 ];
 const REQUIRED_META = ["button", "brand", "edition", "signature"];
+// v1.1 optional decor fields (cards / stickers / composer). They are pure sugar:
+// a theme.json without them must behave exactly like v1.0, and an invalid value
+// only drops that field with a warning — it never rejects the theme.
+const CARD_SUBTITLE_MAX = 4;
+const DECOR_TEXT_LIMIT = 120;
 
 function warn(message) {
   console.error(`[dream-skin] ${message}`);
+}
+
+function cleanDecorText(value) {
+  // eslint-disable-next-line no-control-regex
+  return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]/g, " ").trim() : "";
+}
+
+function cssStringToken(text) {
+  return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+// Derive per-theme CSS variables from the optional `cards` / `composer` fields.
+// Hand-written tokens with the same names win (they are spread after these).
+function deriveDecorTokens(name, config) {
+  const derived = {};
+  const cards = config.cards;
+  if (cards !== undefined) {
+    if (!cards || typeof cards !== "object" || Array.isArray(cards)) {
+      warn(`theme "${name}": "cards" must be an object; field ignored`);
+    } else {
+      if (cards.subtitles !== undefined) {
+        if (!Array.isArray(cards.subtitles) || cards.subtitles.length > CARD_SUBTITLE_MAX) {
+          warn(`theme "${name}": cards.subtitles must be an array of at most ${CARD_SUBTITLE_MAX} strings; field ignored`);
+        } else {
+          cards.subtitles.forEach((subtitle, index) => {
+            const text = cleanDecorText(subtitle);
+            if (!text || text.length > DECOR_TEXT_LIMIT || /[{};]|<\//.test(text)) {
+              warn(`theme "${name}": cards.subtitles[${index}] must be a short plain string; entry ignored`);
+              return;
+            }
+            derived[`--dream-card-sub-${index + 1}`] = cssStringToken(text);
+          });
+        }
+      }
+      if (cards.opacity !== undefined) {
+        const alpha = Number(cards.opacity);
+        if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) {
+          warn(`theme "${name}": cards.opacity must be a number between 0 and 1; field ignored`);
+        } else {
+          derived["--dream-card-alpha"] = String(alpha);
+        }
+      }
+    }
+  }
+  const composer = config.composer;
+  if (composer !== undefined) {
+    if (!composer || typeof composer !== "object" || Array.isArray(composer)) {
+      warn(`theme "${name}": "composer" must be an object; field ignored`);
+    } else if (composer.placeholder !== undefined) {
+      const text = cleanDecorText(composer.placeholder);
+      if (!text || text.length > DECOR_TEXT_LIMIT || /[{};]|<\//.test(text)) {
+        warn(`theme "${name}": composer.placeholder must be a short plain string; field ignored`);
+      } else {
+        derived["--dream-composer-placeholder"] = cssStringToken(text);
+      }
+    }
+  }
+  return derived;
+}
+
+// Stickers are opt-in decorations rendered by the runtime inside the
+// pointer-events:none chrome layer (fullscreen home only). Everything stays
+// off unless the theme.json explicitly asks for it. Text reaches the DOM via
+// textContent only, so it can never carry markup.
+function normalizeStickers(name, config) {
+  if (config === undefined) return null;
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    warn(`theme "${name}": "stickers" must be an object; field ignored`);
+    return null;
+  }
+  const result = {};
+  if (config.bubble !== undefined) {
+    const text = cleanDecorText(
+      config.bubble && typeof config.bubble === "object" ? config.bubble.text : config.bubble
+    );
+    if (!text || text.length > DECOR_TEXT_LIMIT) {
+      warn(`theme "${name}": stickers.bubble.text must be a short non-empty string; bubble ignored`);
+    } else {
+      result.bubble = { text };
+    }
+  }
+  if (config.board !== undefined) {
+    const lines = Array.isArray(config.board?.lines)
+      ? config.board.lines.map(cleanDecorText).filter(Boolean)
+      : null;
+    if (!lines || !lines.length || lines.length > 3 || lines.some((line) => line.length > DECOR_TEXT_LIMIT)) {
+      warn(`theme "${name}": stickers.board.lines must be 1-3 non-empty strings; board ignored`);
+    } else {
+      result.board = { lines };
+    }
+  }
+  if (config.corner !== undefined) {
+    if (config.corner === true) result.corner = true;
+    else if (config.corner !== false) warn(`theme "${name}": stickers.corner must be true or false; corner ignored`);
+  }
+  return Object.keys(result).length ? result : null;
 }
 
 const MIME_BY_EXT = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" };
@@ -354,7 +455,9 @@ async function loadThemeDir(baseName, dirName) {
       edition: meta.edition,
       signature: meta.signature,
     },
-    tokens: config.tokens,
+    // Derived decor tokens first so hand-written tokens of the same name win.
+    tokens: { ...deriveDecorTokens(name, config), ...config.tokens },
+    stickers: normalizeStickers(name, config.stickers),
     extraCss,
     artUrls,
   };
@@ -412,6 +515,7 @@ async function loadPayload() {
   const manifest = {
     order: themes.map((theme) => theme.name),
     meta: Object.fromEntries(themes.map((theme) => [theme.name, theme.meta])),
+    stickers: Object.fromEntries(themes.map((theme) => [theme.name, theme.stickers])),
     defaultTheme,
     defaultLayout: DEFAULT_LAYOUT,
   };
@@ -447,6 +551,7 @@ async function removeFromSession(session) {
     }
     document.querySelectorAll('.dream-home').forEach((node) => node.classList.remove('dream-home'));
     document.querySelectorAll('.dream-home-shell').forEach((node) => node.classList.remove('dream-home-shell'));
+    document.querySelectorAll('.dream-new-task').forEach((node) => node.classList.remove('dream-new-task'));
     document.getElementById('codex-dream-skin-style')?.remove();
     document.getElementById('codex-dream-skin-chrome')?.remove();
     document.getElementById('codex-dream-skin-controls')?.remove();
@@ -620,6 +725,7 @@ async function runThemesReport() {
       default: theme.isDefault,
       button: theme.meta.button,
       extraCss: theme.extraCss !== null,
+      stickers: theme.stickers ? Object.keys(theme.stickers) : [],
     })),
   }, null, 2));
 }

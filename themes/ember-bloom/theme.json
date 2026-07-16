@@ -15,6 +15,14 @@
     "home": "art.png",
     "chat": "art.png"
   },
+  "cards": {
+    "subtitles": [
+      "读懂每一行代码的脉络",
+      "把灵感慢慢落成实现",
+      "细致审查，温柔打磨质量",
+      "找到问题，给出修复方案"
+    ]
+  },
   "tokens": {
     "--dream-ink": "#6b3a2a",
     "--dream-purple": "#c26744",

@@ -15,6 +15,14 @@
     "home": "art.png",
     "chat": "art.png"
   },
+  "cards": {
+    "subtitles": [
+      "快速读懂代码的逻辑与结构",
+      "从想法到实现，一气呵成",
+      "智能审查，稳步提升质量",
+      "定位问题，给出修复方案"
+    ]
+  },
   "tokens": {
     "--dream-ink": "#2f2b52",
     "--dream-purple": "#5b52c7",

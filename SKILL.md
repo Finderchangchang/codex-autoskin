@@ -7,7 +7,7 @@ description: Apply, launch, verify, theme-switch, repair, update, or restore a f
 
 Apply a reversible renderer skin through Chromium DevTools Protocol while launching the official Store-installed Codex executable. Never replace or take ownership of files under `WindowsApps`.
 
-Themes are data, not code: the injector scans `themes/` and `themes-private/` for folders containing `theme.json` (meta + 28 tokens + art) and generates the payload at start. To create or adjust a theme, follow `THEME-SPEC.md` at the repo root — never hardcode theme names into engine files.
+Themes are data, not code: the injector scans `themes/` and `themes-private/` for folders containing `theme.json` (meta + 28 required tokens + art, plus optional v1.1 `cards`/`stickers`/`composer` decor fields) and generates the payload at start. To create or adjust a theme, follow `THEME-SPEC.md` at the repo root — never hardcode theme names into engine files.
 
 ## Workflow
 
@@ -28,6 +28,7 @@ Themes are data, not code: the injector scans `themes/` and `themes-private/` fo
 - When replacing a theme image, keep geometry unchanged and adjust only that theme's crop/overlay/wash tokens in its `theme.json`.
 - Attach the "选择项目" treatment to Codex's real project-selector toolbar and keep the current project button clickable; never draw a disconnected replacement.
 - Keep decorative layers `pointer-events: none`. The decorative chrome container stays at a low z-index so real Codex modals cover it.
+- Stickers (speech bubble, promo board, corner rose) are strictly opt-in per theme, render fullscreen-home-only inside the chrome layer, and must never overlap a native control. The sidebar "new task" capsule is a marker class on the real native button; the account/profile button is only restyled, never covered or replaced by a fake identity card. The theme composer placeholder rides a CSS var fallback, so restore automatically brings the native text back.
 - Inject only the main `app://-/index.html` renderer. Never inject into compact/auxiliary renderers such as `initialRoute=/avatar-overlay`; those windows must retain a fully transparent body for desktop pets.
 - On app updates, rerun install and launch; the scripts discover the current Appx package dynamically.
 - If port `9335` is occupied, choose another port consistently for start, verify, set-theme, and restore.
