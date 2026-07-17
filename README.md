@@ -36,6 +36,16 @@ Codex 自己克隆、安装、从图里生成主题：
 
 > 📌 **本项目只做第一步。** 大家都有 Codex，缺的只是"把一张图变成能用的皮肤底子"（背景 + 配色 + 全屏/横幅两版式）——这一步我们做到极简。至于边框、贴纸、卡片这些细节怎么玩，开动你的脑洞，让你的 agent 照 [THEME-SPEC.md](THEME-SPEC.md) 帮你实现。后续会陆续出教程。
 
+### ⚡ 最快上手：复制这句话
+
+把下面这句话发给你的 Codex，顺手附一张你喜欢的图（横向、主体靠右、无文字水印）：
+
+```text
+安装这个 Codex 皮肤引擎：https://github.com/Finderchangchang/codex-autoskin ，装好后用我附的这张图生成一个主题并立即应用
+```
+
+剩下的全自动。没附图也行——它会先带着内置主题亮起来，之后随时补图。不想用 AI？往下看两条命令的手动版。
+
 ## ✨ 特性
 
 - 🖼 **一张图生成主题** — `quick-theme.ps1 -Image 你的图.png`：自动取色、自动判断明暗路线、生成主题、立即生效
@@ -140,6 +150,12 @@ scripts\restore-dream-skin.ps1 -Uninstall -RestoreBaseTheme
 **Send one image — your Codex gets its own skin.**
 
 A skin engine for the Windows Codex desktop app. Injects CSS/JS into the official renderer over Chrome DevTools Protocol (loopback only): no app files modified, fully reversible, login/session untouched.
+
+**Fastest path** — paste this to your Codex along with an image you like:
+
+```text
+Install this Codex skin engine: https://github.com/Finderchangchang/codex-autoskin , then use the attached image to generate a theme and apply it
+```
 
 **Quick start** (Windows 10/11, Store-installed Codex signed in once, [Node.js ≥ 20](https://nodejs.org/)):
 
