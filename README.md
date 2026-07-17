@@ -18,14 +18,23 @@
 
 ---
 
-## 预览
+## 🎬 真实演示
 
-| Aurora Veil（内置） | Ember Bloom（内置） |
-|---|---|
-| ![aurora fullscreen](docs/screenshot-aurora-veil-fullscreen.png) | ![ember fullscreen](docs/screenshot-ember-bloom-fullscreen.png) |
-| ![aurora banner](docs/screenshot-aurora-veil-banner.png) | ![ember banner](docs/screenshot-ember-bloom-banner.png) |
+把仓库链接和一张图丢给你的 Codex，说一句 **"安装这个皮肤"**：
 
-> 内置主题素材均为程序化生成的原创图片，仓库不含任何真人照片；截图侧栏已模糊、项目名为演示示例。
+![① 一句话指令](docs/demo-step1-command.png)
+
+Codex 自己克隆、安装、从图里生成主题：
+
+![② Codex 自主执行](docs/demo-step2-agent.png)
+
+完成——从一张图到专属皮肤，全程无人工：
+
+![③ 成品亮起](docs/demo-step3-result.png)
+
+> 演示主题由一张同人图经本流程生成，仅作流程演示；示例素材版权归原权利人。请勿用他人肖像或受版权保护的素材制作并**公开传播**主题（自用请放 `themes-private/`）。
+
+> 📌 **本项目只做第一步。** 大家都有 Codex，缺的只是"把一张图变成能用的皮肤底子"（背景 + 配色 + 全屏/横幅两版式）——这一步我们做到极简。至于边框、贴纸、卡片这些细节怎么玩，开动你的脑洞，让你的 agent 照 [THEME-SPEC.md](THEME-SPEC.md) 帮你实现。后续会陆续出教程。
 
 ## ✨ 特性
 
@@ -58,6 +67,15 @@ cd codex-autoskin
 > - **更懒的方式**：把整个仓库丢给你的 Codex / Claude，说 **"安装这个皮肤"**
 
 **图片要求**：PNG / JPG，横向图宽度 ≥ 1600，主体尽量靠右（左侧压标题文字），画面无文字 / 水印 / 界面元素，素材版权责任自负。
+
+### 内置主题预览
+
+| Aurora Veil（暗图路线） | Ember Bloom（亮图路线） |
+|---|---|
+| ![aurora fullscreen](docs/screenshot-aurora-veil-fullscreen.png) | ![ember fullscreen](docs/screenshot-ember-bloom-fullscreen.png) |
+| ![aurora banner](docs/screenshot-aurora-veil-banner.png) | ![ember banner](docs/screenshot-ember-bloom-banner.png) |
+
+> 内置主题素材均为程序化生成的原创图片，仓库不含任何真人照片；截图侧栏已模糊、项目名为演示示例。
 
 ## 🎨 日常使用
 
@@ -102,6 +120,8 @@ scripts\restore-dream-skin.ps1 -Uninstall -RestoreBaseTheme
 ## 💬 关于
 
 用 CDP 注入给 Codex 换肤的初版（当时叫 **Dream Skin**）出自我之手，很高兴看到这个玩法在社区里开枝散叶。AutoSkin 是对这个想法的全面重写：v1 回答"能不能换肤"，这一版回答"怎么让任何人发一张图就得到自己的皮肤"。
+
+整个 2.0 由作者与 AI 结对完成，从定位、架构到每一次翻车的完整决策记录公开在 [DEVLOG.md](DEVLOG.md)——算是一次全程透明的赛博开发实验，会随迭代持续更新。
 
 ## ⚠️ 免责声明
 
