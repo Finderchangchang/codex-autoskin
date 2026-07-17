@@ -96,7 +96,7 @@ if (!main) {
 
 const expression = `(() => {
   const state = window.__CODEX_DREAM_SKIN_STATE__;
-  if (!state) return { ok: false, error: "dream skin is not active (run start-dream-skin.ps1 first)" };
+  if (!state) return { ok: false, error: "dream skin is not active (run the platform start-dream-skin script first)" };
   const request = ${JSON.stringify({ theme: options.theme, layout: options.layout, list: options.list })};
   const themes = state.themes ?? [];
   if (request.list) {
