@@ -290,6 +290,24 @@ if (Test-Path -LiteralPath $themeDir) {
 }
 if ($ext -eq '.png') { $artFile = 'art.png' } else { $artFile = 'art.jpg' }
 Copy-Item -LiteralPath $imgFull -Destination (Join-Path $themeDir $artFile) -Force
+$previewFile = 'preview.jpg'
+$sourcePreview = [System.Drawing.Image]::FromFile($imgFull)
+try {
+  $preview = New-Object System.Drawing.Bitmap 480, 270
+  try {
+    $graphics = [System.Drawing.Graphics]::FromImage($preview)
+    try {
+      $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+      $scale = [Math]::Max(480.0 / $sourcePreview.Width, 270.0 / $sourcePreview.Height)
+      $drawWidth = [int][Math]::Ceiling($sourcePreview.Width * $scale)
+      $drawHeight = [int][Math]::Ceiling($sourcePreview.Height * $scale)
+      $drawX = [int][Math]::Floor((480 - $drawWidth) / 2.0)
+      $drawY = [int][Math]::Floor((270 - $drawHeight) / 2.0)
+      $graphics.DrawImage($sourcePreview, $drawX, $drawY, $drawWidth, $drawHeight)
+    } finally { $graphics.Dispose() }
+    $preview.Save((Join-Path $themeDir $previewFile), [System.Drawing.Imaging.ImageFormat]::Jpeg)
+  } finally { $preview.Dispose() }
+} finally { $sourcePreview.Dispose() }
 
 $button = $Name.Split('-')[0]
 if ($button.Length -gt 6) { $button = $button.Substring(0, 6) }
@@ -312,6 +330,7 @@ $theme = [ordered]@{
   art = [ordered]@{
     home = $artFile
     chat = $artFile
+    preview = $previewFile
   }
   tokens = $tokens
 }

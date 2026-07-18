@@ -48,6 +48,7 @@ THEME_REPORT="$TMP_ROOT/themes.json"
   for (const name of ["aurora-veil", "ember-bloom"]) {
     if (!report.themes.some((theme) => theme.name === name)) throw new Error(`missing ${name}`);
   }
+  if (!report.themes.every((theme) => theme.preview)) throw new Error("a discovered theme is missing its preview asset");
 ' "$THEME_REPORT"
 
 echo "Checking base-color apply/restore idempotence..."
@@ -99,7 +100,11 @@ echo "Checking one-image theme generation..."
   if (!result.ok || result.route !== "light") throw new Error("unexpected generated theme report");
   if (manifest.notes.generator !== "quick-theme") throw new Error("generator marker is missing");
   if (Object.keys(manifest.tokens).length !== 28) throw new Error("generated theme must contain 28 tokens");
-' "$TMP_ROOT/quick-theme-result.json" "$TMP_ROOT/themes-private/ci-quick-theme/theme.json"
+  if (manifest.art.preview !== "preview.jpg" || !fs.existsSync(process.argv[3])) throw new Error("preview was not generated");
+' "$TMP_ROOT/quick-theme-result.json" "$TMP_ROOT/themes-private/ci-quick-theme/theme.json" "$TMP_ROOT/themes-private/ci-quick-theme/preview.jpg"
+preview_dimensions="$(/usr/bin/sips -g pixelWidth -g pixelHeight "$TMP_ROOT/themes-private/ci-quick-theme/preview.jpg")"
+printf '%s' "$preview_dimensions" | grep -q 'pixelWidth: 480' || fail "quick-theme preview width is not 480"
+printf '%s' "$preview_dimensions" | grep -q 'pixelHeight: 270' || fail "quick-theme preview height is not 270"
 "$NODE_BIN" "$ROOT/scripts/generate-quick-theme-macos.mjs" \
   --image "$ROOT/themes/ember-bloom/art.png" \
   --name ci-quick-theme \
@@ -183,8 +188,14 @@ HOME="$TEST_HOME" /bin/bash -c '
 echo "Checking isolated one-command installation..."
 mkdir -p "$TEST_HOME/.codex"
 printf '%s\n' '[desktop]' 'appearanceTheme = "dark"' >"$TEST_HOME/.codex/config.toml"
-HOME="$TEST_HOME" "$ROOT/scripts/autoskin-macos.sh" install \
+FAKE_BIN="$TMP_ROOT/fake-bin"
+LAUNCHCTL_LOG="$TMP_ROOT/launchctl.log"
+mkdir -p "$FAKE_BIN"
+printf '%s\n' '#!/bin/sh' 'printf "%s\\n" "$*" >> "$AUTOSKIN_TEST_LAUNCHCTL_LOG"' >"$FAKE_BIN/launchctl"
+chmod +x "$FAKE_BIN/launchctl"
+PATH="$FAKE_BIN:$PATH" AUTOSKIN_TEST_LAUNCHCTL_LOG="$LAUNCHCTL_LOG" HOME="$TEST_HOME" "$ROOT/scripts/autoskin-macos.sh" install \
   --no-start --no-auto-recover --port 19337 --app "$FAKE_APP" --node "$NODE_BIN" >/dev/null
+[ ! -e "$LAUNCHCTL_LOG" ] || fail "isolated --no-auto-recover install touched the real LaunchAgent label"
 INSTALLED_ROOT="$TEST_HOME/Library/Application Support/CodexDreamSkin"
 [ -x "$INSTALLED_ROOT/runtime/scripts/autoskin-macos.sh" ] || fail "unified installer did not create a stable runtime"
 [ -f "$INSTALLED_ROOT/config.before-dream-skin.toml" ] || fail "unified installer did not back up base colors"
@@ -207,10 +218,12 @@ HOME="$TEST_HOME" "$INSTALLED_ROOT/runtime/scripts/autoskin-macos.sh" quick-them
 
 echo "Checking repeatable uninstall without a backup..."
 rm -f "$INSTALLED_ROOT/config.before-dream-skin.toml"
-for _ in 1 2; do
-  HOME="$TEST_HOME" "$ROOT/scripts/restore-dream-skin.sh" \
-    --uninstall --restore-base-theme --node "$NODE_BIN" >/dev/null
-done
+PATH="$FAKE_BIN:$PATH" AUTOSKIN_TEST_LAUNCHCTL_LOG="$LAUNCHCTL_LOG" HOME="$TEST_HOME" "$ROOT/scripts/restore-dream-skin.sh" \
+  --uninstall --restore-base-theme --node "$NODE_BIN" >/dev/null
+SECOND_UNINSTALL_OUTPUT="$(PATH="$FAKE_BIN:$PATH" AUTOSKIN_TEST_LAUNCHCTL_LOG="$LAUNCHCTL_LOG" HOME="$TEST_HOME" "$ROOT/scripts/restore-dream-skin.sh" \
+  --uninstall --restore-base-theme --node "$NODE_BIN")"
+printf '%s' "$SECOND_UNINSTALL_OUTPUT" | grep -q 'no live renderer was contacted' || fail "repeat uninstall fell back to a default live port"
+[ ! -e "$LAUNCHCTL_LOG" ] || fail "isolated uninstall touched the real LaunchAgent label"
 [ ! -e "$TEST_HOME/Library/Application Support/CodexDreamSkin/runtime" ] || fail "runtime was not removed"
 [ ! -e "$TEST_HOME/Library/Application Support/CodexDreamSkin/install-state.json" ] || fail "install state was not removed"
 

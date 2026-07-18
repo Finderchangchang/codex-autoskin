@@ -5,10 +5,10 @@
 
 ## 0. 心智模型
 
-- 皮肤引擎 = **结构层**（`styles/dream/style.css`，只消费 CSS 变量）+ **主题数据**（`themes/<name>/`，纯数据）。
-- 注入器 `scripts/injector.mjs` 启动时扫描 `themes/` 与 `themes-private/` 下所有含 `theme.json` 的文件夹，动态生成每主题的变量块、校验并拼接 `extra.css`、把图片转成 dataURL，随 manifest 一起注入 Codex 渲染器。
+- 皮肤引擎 = **原版 Dream 结构层**（`styles/dream/style.css`，只消费 CSS 变量）+ **主题数据**（`themes/<name>/`，纯数据）+ 中性的主题切换面板。
+- 注入器 `scripts/injector.mjs` 扫描 `themes/` 与 `themes-private/` 下所有含 `theme.json` 的文件夹，生成每主题变量块、校验并拼接 `extra.css`、把图片与轻量预览转成 dataURL，随 manifest 一起注入 Codex 渲染器。
 - **做主题 = 写一个文件夹**。你永远不需要（也不允许）修改引擎文件：
-  `scripts/*.mjs`、`scripts/*.ps1`、`scripts/*.sh`、`assets/renderer-inject.js`、`styles/dream/style.css`。
+  `scripts/*`、`assets/renderer-inject.js`、`styles/common.css`、`styles/dream/style.css`。
 
 ## 1. 主题文件夹格式
 
@@ -16,6 +16,7 @@
 themes/<name>/            # 公开主题；本地私用放 themes-private/<name>/（已被 .gitignore）
   theme.json              # 必需：元信息 + 28 个 token + art 引用
   art.png                 # 必需：主视觉图（png/jpg/webp，建议 ≥1920 宽）
+  preview.webp            # 推荐：约 480×270 的轻量预览
   extra.css               # 可选：主题特例样式，必须限定作用域（见 §6）
 ```
 
@@ -43,7 +44,8 @@ themes/<name>/            # 公开主题；本地私用放 themes-private/<name>
   },
   "art": {                      // 可选。省略等价于 { "home": "art.png" }
     "home": "art.png",          //   首页视觉图（hero / fullscreen / polaroid 三个角色共用）
-    "chat": "art.png"           //   聊天页淡背景图；省略 = 与 home 同图
+    "chat": "art.png",          //   聊天页淡背景图；省略 = 与 home 同图
+    "preview": "preview.webp"   //   推荐的切换器轻量预览；省略 = 使用 home
   },                            //   只能是主题文件夹内的纯文件名（png/jpg/webp），不允许路径
   "cards": {                    // 可选（v1.1）。首页建议卡片装饰，见 §3.7
     "subtitles": [              //   最多 4 条，按卡片顺序一一对应；窗口变窄原生卡 4→3→2 隐藏时
@@ -82,7 +84,7 @@ themes/<name>/            # 公开主题；本地私用放 themes-private/<name>
 
 ## 3. 28 个 token 逐个说明
 
-取色总原则：从图片里取 1 个主色（hue 基准）、1 个辅助亮色、1 个近黑的深色；页面底色永远接近白（本皮肤是浅色皮肤，`color-scheme: light`）。
+取色总原则：从图片里取 1 个主色（hue 基准）、1 个辅助亮色、1 个近黑的深色；页面底色永远接近白（本皮肤沿用原版 Dream 的浅色设计，`color-scheme: light`）。
 
 ### 3.1 全局色（4 个）
 
@@ -142,7 +144,15 @@ themes/<name>/            # 公开主题；本地私用放 themes-private/<name>
 
 > 另有 6 个**结构 token**（`--dream-hero-height`、`--dream-card-height`、`--dream-suggestion-gap`、`--dream-hero-copy-width`、`--dream-hero-split-width`、`--dream-fullscreen-overlay-width`）在 `styles/dream/style.css` 里有默认值，主题一般不用碰；确要改可以直接写进 `tokens`（同样的 key 规则）。
 
-### 3.7 v1.1 可选装饰 token（全部有默认值，非必需）
+### 3.7 自动派生的全应用语义色（不要写进 theme.json）
+
+引擎会从每个主题必需的 `--dream-ink`、`--dream-purple`、`--dream-violet`、`--dream-pink`、`--dream-page-bg-0`、`--dream-page-bg-1` 自动生成一套语义色，并桥接到 Codex 原生颜色变量。它覆盖侧栏、顶部工具栏、聊天画布、消息、输入框、下拉菜单、右侧面板、编辑器标签栏和终端。
+
+因此，quick-theme 或其他工具以后生成新主题时，只需继续正确输出这 6 个核心色；**不需要**识别 Codex 的 DOM、不需要生成区域专用 CSS，也不要复制某个现有主题的粉色/蓝色常量。结构层只允许使用 `var(--dream-*)`、`color-mix()` 和中性黑白灰常量，测试会拒绝泄漏在 token 区以外的有色字面量。
+
+派生层遵循同一材质层级：页面底色使用 `page-bg`，大面板轻微向白混合，浮层比大面板更亮，边框/阴影从 `ink` 或强调色低透明度生成，选中/聚焦态使用 `purple/violet/pink`。这样不同区域有层级差异，但仍属于同一个主题。
+
+### 3.8 v1.1 可选装饰 token（全部有默认值，非必需）
 
 通常不用手写——`cards` / `composer` 字段会自动生成前三行；手写进 `tokens` 可覆盖生成值或做更细调整。
 
@@ -154,7 +164,7 @@ themes/<name>/            # 公开主题；本地私用放 themes-private/<name>
 | `--dream-card-icon-color` | 定制图标的颜色（画在渐变圆徽章上） | `#fff` |
 | `--dream-card-alpha` | 卡片底色透明度（两种版式共用；卡片带 backdrop blur 保证可读） | `.93` |
 | `--dream-composer-placeholder` | 首页输入框占位文案（CSS 字符串） | 原生文案 |
-| `--dream-card-frame` | 卡片内细线装饰框颜色 | `rgba(226,158,196,.55)` |
+| `--dream-card-frame` | 卡片内细线装饰框颜色 | 从 `--dream-pink` 自动混合生成 |
 | `--dream-card-ornament` | 卡片四角小花饰 + 底部菱形饰点颜色 | `var(--dream-pink)` |
 | `--dream-card-sub-color` | 副标题文字色 | ink 与白的 color-mix |
 | `--dream-sticker-ink` | 贴纸文字/玫瑰线稿主色 | `var(--dream-purple)` |

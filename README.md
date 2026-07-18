@@ -69,6 +69,7 @@ Codex 自己克隆、安装、从图里生成主题：
 - 🖼 **一张图生成主题** — Windows 一条命令 / macOS 双击选图：自动取色、自动判断明暗路线、生成主题、立即生效
 - ⚡ **上手极简** — Windows 两条命令；macOS 双击安装，直接复用 Codex 内置的 Node.js，普通用户零依赖
 - 📁 **主题即文件夹** — 一个 `theme.json` + 一张图就是一个主题，增删主题零改码
+- 🎨 **屏内主题切换** — 沿用原版 Dream 设计，从侧栏选择主题；可一键撤销，也可切回完全无皮肤的 Codex 原版
 - 🤖 **AI 精修（可选）** — 把仓库丢给你的 Codex / Claude，照 [THEME-SPEC.md](THEME-SPEC.md) 深度定制裁剪、文案、贴纸
 - 🔒 **安全可逆** — CDP 仅本机回环注入，不碰 `WindowsApps`、应用 bundle 或 `app.asar`，登录态会话原样保留，一条命令还原
 - 🛡 **稳定守护** — 双栈端口探测、崩溃防抖熔断、装饰层命中测试；Windows 用 Startup watcher、macOS 用 LaunchAgent，重启 Codex 后皮肤自动恢复
@@ -145,6 +146,8 @@ scripts/autoskin-macos.sh install --port 19335                    # 端口被占
 
 ## 🎨 日常使用
 
+安装后，在 Codex 侧栏底部点击 **Themes**。面板不会遮暗或锁住当前任务，只负责切换原版 Dream 主题；可以连续比较主题，也可以撤销本次打开面板后的修改。首页建议卡片默认隐藏，可用 **Show suggestion cards** 随时打开并记住选择。点击 **Codex Original** 会撤掉背景、配色和装饰并记住该状态；侧栏入口仍保留，选择任一主题即可重新启用 AutoSkin。
+
 ```powershell
 node scripts\set-theme.mjs --list                  # 列出全部主题（两端通用）
 node scripts\set-theme.mjs aurora-veil fullscreen  # 切主题 + 版式（banner / fullscreen）
@@ -162,7 +165,7 @@ scripts/restore-dream-skin.sh                            # macOS 一键还原官
 
 **快速**：Windows `quick-theme.ps1` / macOS `quick-theme` 命令（见上），覆盖背景替换 + 基础配色，全屏 / 横幅两种版式。
 
-**进阶**：把仓库和图丢给你的 Codex / Claude，说 **"照着 THEME-SPEC.md 精修 <主题名> 主题"**。[THEME-SPEC.md](THEME-SPEC.md) 是写给 AI agent 读的完整规范——28 个取色 token、四种画面角色的裁剪调参、明暗路线决策树、验收清单，agent 读完即可独立产出并自测交付。内置的 [aurora-veil](themes/aurora-veil/theme.json)（暗图路线）与 [ember-bloom](themes/ember-bloom/theme.json)（亮图路线）即是两份对照样例。
+**进阶**：把仓库和图丢给你的 Codex / Claude，说 **"照着 THEME-SPEC.md 精修 <主题名> 主题"**。[THEME-SPEC.md](THEME-SPEC.md) 是写给 AI agent 读的完整规范。内置的 [aurora-veil](themes/aurora-veil/theme.json)（暗图路线）与 [ember-bloom](themes/ember-bloom/theme.json)（亮图路线）是两份对照样例。
 
 ## 🔍 工作原理与安全
 
@@ -184,6 +187,7 @@ scripts/restore-dream-skin.sh                            # macOS 一键还原官
 - [x] 一张图自动取色生成主题（明 / 暗双路线）
 - [x] AI 精修规范 THEME-SPEC.md
 - [x] macOS 适配 —— ✅ 社区贡献，感谢 [@keyuchen21](https://github.com/keyuchen21)
+- [x] 侧栏主题切换、Codex 原版恢复与单次撤销
 - [ ] 演示 GIF / 视频教程系列
 - [ ] 社区主题展示墙
 - [ ] 更多风格包（当前内置 dream 风格）
@@ -264,7 +268,7 @@ cd codex-autoskin
 
 macOS (official Codex app signed in once — no separate Node.js needed, the app's bundled runtime is reused): download/unzip, right-click → Open `Install AutoSkin on macOS.command`, then open `Create AutoSkin Theme on macOS.command` and pick a PNG/JPG. Terminal equivalents: `scripts/autoskin-macos.sh install` and `scripts/autoskin-macos.sh quick-theme /path/to/image.png --name my-theme`. Installation keeps the existing Codex profile (projects, tasks, chats, login all preserved) and copies a self-contained runtime to `~/Library/Application Support/CodexDreamSkin/runtime`; the unified command also supports `theme`, `verify`, `doctor`, and repeatable `uninstall`. If Gatekeeper blocks a script, right-click → Open; grant Screen Recording for screenshot verification.
 
-**Features**: one-image theme generation (auto palette, light/dark route detection) · themes are plain folders (`theme.json` + one image) · optional AI refinement — hand this repo to your Codex/Claude agent with "refine theme &lt;name&gt; following THEME-SPEC.md" · switch via `node scripts/set-theme.mjs <theme> [banner|fullscreen]` · uninstall via `scripts\restore-dream-skin.ps1 -Uninstall -RestoreBaseTheme` (Windows) or `scripts/autoskin-macos.sh uninstall` (macOS).
+**Features**: one-image theme generation · original Dream design · a modeless in-app theme picker with native restore and undo · themes as plain folders · optional AI refinement with [THEME-SPEC.md](THEME-SPEC.md) · advanced CLI switching via `node scripts/set-theme.mjs <theme> [banner|fullscreen]` · fully reversible uninstall.
 
 Image tips: PNG/JPG, landscape ≥ 1600 px, subject on the right (the left side carries the title), clean art without text/watermark/UI. You are responsible for the rights to images you use; never publish themes using a real person's likeness (keep private themes in git-ignored `themes-private/`).
 

@@ -4,7 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/mac-common.sh"
 
+INSTALL_STATE_PATH="$(dream_install_state_path)"
+HAD_INSTALL_STATE=0
+[ ! -f "$INSTALL_STATE_PATH" ] || HAD_INSTALL_STATE=1
 PORT="$(dream_installed_port)"
+PORT_EXPLICIT=0
 UNINSTALL=0
 RESTORE_BASE_THEME=0
 NODE_PATH=""
@@ -12,7 +16,7 @@ APP_PATH=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --port) [ "$#" -ge 2 ] || dream_die "--port requires a value"; PORT="$2"; shift 2 ;;
+    --port) [ "$#" -ge 2 ] || dream_die "--port requires a value"; PORT="$2"; PORT_EXPLICIT=1; shift 2 ;;
     --uninstall) UNINSTALL=1; shift ;;
     --restore-base-theme) RESTORE_BASE_THEME=1; shift ;;
     --node) [ "$#" -ge 2 ] || dream_die "--node requires a value"; NODE_PATH="$2"; shift 2 ;;
@@ -31,8 +35,12 @@ STATE_ROOT="$(dream_state_root)"
 STATE_PATH="$STATE_ROOT/state.json"
 WATCHER_STATE_PATH="$STATE_ROOT/watcher-state.json"
 PLIST_PATH="$HOME/Library/LaunchAgents/com.codex-autoskin.watcher.plist"
+HAD_RUNTIME_STATE=0
+[ ! -f "$STATE_PATH" ] || HAD_RUNTIME_STATE=1
 
-launchctl bootout "gui/$UID/com.codex-autoskin.watcher" >/dev/null 2>&1 || true
+if [ -f "$PLIST_PATH" ]; then
+  launchctl bootout "gui/$UID/com.codex-autoskin.watcher" >/dev/null 2>&1 || true
+fi
 if [ -f "$WATCHER_STATE_PATH" ]; then
   WATCHER_PID="$(dream_read_json_number "$WATCHER_STATE_PATH" watcherPid 2>/dev/null || true)"
   [ -z "$WATCHER_PID" ] || dream_stop_pid_if_matches "$WATCHER_PID" "watch-dream-skin.sh"
@@ -46,7 +54,13 @@ if [ -f "$STATE_PATH" ]; then
   rm -f "$STATE_PATH"
 fi
 sleep 0.25
-"$NODE_BIN" "$SCRIPT_DIR/injector.mjs" --remove --port "$PORT" --timeout-ms 3000 >/dev/null 2>&1 || true
+SHOULD_REMOVE_LIVE=1
+if [ "$UNINSTALL" -eq 1 ] && [ "$HAD_INSTALL_STATE" -eq 0 ] && [ "$HAD_RUNTIME_STATE" -eq 0 ] && [ "$PORT_EXPLICIT" -eq 0 ]; then
+  SHOULD_REMOVE_LIVE=0
+fi
+if [ "$SHOULD_REMOVE_LIVE" -eq 1 ]; then
+  "$NODE_BIN" "$SCRIPT_DIR/injector.mjs" --remove --port "$PORT" --timeout-ms 3000 >/dev/null 2>&1 || true
+fi
 
 if [ "$UNINSTALL" -eq 1 ]; then
   rm -f "$PLIST_PATH"
@@ -68,4 +82,8 @@ if [ "$UNINSTALL" -eq 1 ]; then
   rm -rf "$STATE_ROOT/runtime"
 fi
 
-echo "The live Dream Skin was removed."
+if [ "$SHOULD_REMOVE_LIVE" -eq 1 ]; then
+  echo "The live Dream Skin was removed."
+else
+  echo "AutoSkin was already uninstalled; no live renderer was contacted."
+fi

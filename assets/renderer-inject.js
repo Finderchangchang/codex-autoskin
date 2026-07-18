@@ -2,14 +2,17 @@
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
   const STYLE_ID = "codex-dream-skin-style";
   const CHROME_ID = "codex-dream-skin-chrome";
-  // Legacy id from v1: the interactive switch container was removed by design
-  // (theme/layout changes are programmatic now — scripts/set-theme.mjs), but we
-  // keep deleting any stale container an older injection may have left behind.
   const LEGACY_CONTROLS_ID = "codex-dream-skin-controls";
+  const ENTRY_ID = "codex-autoskin-entry";
+  const ENTRY_BUTTON_ID = "codex-autoskin-entry-button";
+  const PANEL_ID = "codex-autoskin-panel";
+  const TRANSITION_ID = "codex-autoskin-transition";
   const INJECTION_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const LAYOUT_STORAGE_KEY = "codex-dream-skin.layout";
   const THEME_STORAGE_KEY = "codex-dream-skin.theme";
-  const STYLE_VERSION = "4";
+  const MODE_STORAGE_KEY = "codex-dream-skin.mode";
+  const SUGGESTIONS_STORAGE_KEY = "codex-dream-skin.suggestions";
+  const STYLE_VERSION = "11";
   const LAYOUTS = new Set(["banner", "fullscreen"]);
   // Sidebar "new task" row gets a marker class so the structure CSS can restyle
   // it as a capsule. Text matching only; the real button stays fully native.
@@ -22,12 +25,153 @@
   const THEME_STICKERS = manifest.stickers ?? {};
   const DEFAULT_THEME = THEMES.has(manifest.defaultTheme) ? manifest.defaultTheme : THEME_ORDER[0];
   const DEFAULT_LAYOUT = LAYOUTS.has(manifest.defaultLayout) ? manifest.defaultLayout : "fullscreen";
+  // Keep the original Windows Dream skin model intact. The only product-level
+  // addition is this theme picker; layout remains an advanced compatibility API.
+  const VISIBLE_THEME_ORDER = THEME_ORDER;
+  // Codex's built-in light/dark chrome palettes. Native mode reapplies these
+  // runtime tokens because the optional AutoSkin installer base tint lives in
+  // Codex settings and otherwise survives after the visual skin is removed.
+  const NATIVE_THEME_TOKENS = {
+    light: {
+      "--codex-base-accent": "#339cff", "--codex-base-contrast": "45", "--codex-base-ink": "#1a1c1f", "--codex-base-surface": "#ffffff",
+      "--color-accent-blue": "#339cff", "--color-accent-purple": "#924ff7", "--color-background-accent": "#e5f2ff", "--color-background-accent-active": "#e0f0ff", "--color-background-accent-hover": "#e2f1ff",
+      "--color-background-button-primary": "#1a1c1f", "--color-background-button-primary-active": "rgba(26, 28, 31, 0.154)", "--color-background-button-primary-hover": "rgba(26, 28, 31, 0.077)", "--color-background-button-primary-inactive": "rgba(26, 28, 31, 0.243)",
+      "--color-background-button-secondary": "rgba(26, 28, 31, 0.049)", "--color-background-button-secondary-active": "rgba(26, 28, 31, 0.039)", "--color-background-button-secondary-hover": "rgba(26, 28, 31, 0.053)", "--color-background-button-secondary-inactive": "rgba(26, 28, 31, 0.019)",
+      "--color-background-button-tertiary": "rgba(26, 28, 31, 0)", "--color-background-button-tertiary-active": "rgba(26, 28, 31, 0.196)", "--color-background-button-tertiary-hover": "rgba(26, 28, 31, 0.098)",
+      "--color-background-control": "rgba(255, 255, 255, 0.96)", "--color-background-control-opaque": "rgb(255, 255, 255)", "--color-background-editor-opaque": "rgb(255, 255, 255)",
+      "--color-background-elevated-primary": "rgba(255, 255, 255, 0.96)", "--color-background-elevated-primary-opaque": "rgb(255, 255, 255)", "--color-background-elevated-secondary": "rgba(255, 255, 255, 0.96)", "--color-background-elevated-secondary-opaque": "rgb(255, 255, 255)",
+      "--color-background-panel": "#ffffff", "--color-background-surface": "#ffffff", "--color-background-surface-under": "#f6f6f6",
+      "--color-border": "rgba(26, 28, 31, 0.078)", "--color-border-focus": "#339cff", "--color-border-heavy": "rgba(26, 28, 31, 0.117)", "--color-border-light": "rgba(26, 28, 31, 0.049)",
+      "--color-decoration-added": "#00a240", "--color-decoration-deleted": "#ba2623", "--color-editor-added": "rgba(0, 162, 64, 0.15)", "--color-editor-deleted": "rgba(186, 38, 35, 0.15)",
+      "--color-icon-accent": "#339cff", "--color-icon-primary": "#1a1c1f", "--color-icon-secondary": "rgba(26, 28, 31, 0.695)", "--color-icon-tertiary": "rgba(26, 28, 31, 0.495)", "--color-simple-scrim": "rgba(0, 0, 0, 0.098)",
+      "--color-text-accent": "#339cff", "--color-text-on-accent": "rgb(255, 255, 255)", "--color-text-button-primary": "#ffffff", "--color-text-button-secondary": "#1a1c1f", "--color-text-button-tertiary": "rgba(26, 28, 31, 0.495)",
+      "--color-text-foreground": "#1a1c1f", "--color-text-foreground-secondary": "rgba(26, 28, 31, 0.695)", "--color-text-foreground-tertiary": "rgba(26, 28, 31, 0.495)",
+    },
+    dark: {
+      "--codex-base-accent": "#339cff", "--codex-base-contrast": "60", "--codex-base-ink": "#ffffff", "--codex-base-surface": "#181818",
+      "--color-accent-blue": "#339cff", "--color-accent-purple": "#ad7bf9", "--color-background-accent": "#0d273f", "--color-background-accent-active": "#0f2e4a", "--color-background-accent-hover": "#0e2a45",
+      "--color-background-button-primary": "rgb(13, 13, 13)", "--color-background-button-primary-active": "rgba(255, 255, 255, 0.1)", "--color-background-button-primary-hover": "rgba(255, 255, 255, 0.058)", "--color-background-button-primary-inactive": "rgba(255, 255, 255, 0.032)",
+      "--color-background-button-secondary": "rgba(255, 255, 255, 0.052)", "--color-background-button-secondary-active": "rgba(255, 255, 255, 0.12)", "--color-background-button-secondary-hover": "rgba(255, 255, 255, 0.078)", "--color-background-button-secondary-inactive": "rgba(255, 255, 255, 0.038)",
+      "--color-background-button-tertiary": "rgba(255, 255, 255, 0.029)", "--color-background-button-tertiary-active": "rgba(255, 255, 255, 0.1)", "--color-background-button-tertiary-hover": "rgba(255, 255, 255, 0.068)",
+      "--color-background-control": "rgba(45, 45, 45, 0.96)", "--color-background-control-opaque": "rgb(45, 45, 45)", "--color-background-editor-opaque": "rgb(40, 40, 40)",
+      "--color-background-elevated-primary": "rgba(54, 54, 54, 0.96)", "--color-background-elevated-primary-opaque": "rgb(54, 54, 54)", "--color-background-elevated-secondary": "rgba(255, 255, 255, 0.032)", "--color-background-elevated-secondary-opaque": "#282828",
+      "--color-background-panel": "#232323", "--color-background-surface": "#181818", "--color-background-surface-under": "#141414",
+      "--color-border": "rgba(255, 255, 255, 0.084)", "--color-border-focus": "rgba(131, 195, 255, 0.76)", "--color-border-heavy": "rgba(255, 255, 255, 0.156)", "--color-border-light": "rgba(255, 255, 255, 0.042)",
+      "--color-decoration-added": "#40c977", "--color-decoration-deleted": "#fa423e", "--color-editor-added": "rgba(64, 201, 119, 0.23)", "--color-editor-deleted": "rgba(250, 66, 62, 0.23)",
+      "--color-icon-accent": "rgb(131, 195, 255)", "--color-icon-primary": "rgba(255, 255, 255, 0.904)", "--color-icon-secondary": "rgba(255, 255, 255, 0.71)", "--color-icon-tertiary": "rgba(255, 255, 255, 0.51)", "--color-simple-scrim": "rgba(255, 255, 255, 0.104)",
+      "--color-text-accent": "rgb(131, 195, 255)", "--color-text-on-accent": "rgb(255, 255, 255)", "--color-text-button-primary": "rgb(13, 13, 13)", "--color-text-button-secondary": "#4f4f4f", "--color-text-button-tertiary": "rgba(255, 255, 255, 0.51)",
+      "--color-text-foreground": "#ffffff", "--color-text-foreground-secondary": "rgba(255, 255, 255, 0.71)", "--color-text-foreground-tertiary": "rgba(255, 255, 255, 0.498)",
+    },
+  };
+  // Theme manifests intentionally expose only six core palette colors. This
+  // bridge derives Codex's host semantic palette from those colors, so native
+  // surfaces (side panes, editor tabs, popovers, inputs and messages) follow
+  // every current or future quick-theme without per-theme engine code.
+  const SKIN_HOST_TOKENS = {
+    "--codex-base-accent": "var(--dream-purple)",
+    "--codex-base-contrast": "55",
+    "--codex-base-ink": "var(--dream-ink)",
+    "--codex-base-surface": "var(--dream-page-bg-0)",
+    "--color-accent-blue": "var(--dream-purple)",
+    "--color-accent-purple": "var(--dream-violet)",
+    "--color-background-accent": "var(--dream-surface-accent-soft)",
+    "--color-background-accent-active": "color-mix(in srgb, var(--dream-purple) 20%, var(--dream-page-bg-0))",
+    "--color-background-accent-hover": "color-mix(in srgb, var(--dream-purple) 14%, var(--dream-page-bg-0))",
+    "--color-background-button-primary": "var(--dream-purple)",
+    "--color-background-button-primary-active": "color-mix(in srgb, var(--dream-purple) 82%, var(--dream-ink))",
+    "--color-background-button-primary-hover": "color-mix(in srgb, var(--dream-purple) 88%, var(--dream-violet))",
+    "--color-background-button-primary-inactive": "color-mix(in srgb, var(--dream-purple) 42%, transparent)",
+    "--color-background-button-secondary": "color-mix(in srgb, var(--dream-ink) 7%, transparent)",
+    "--color-background-button-secondary-active": "color-mix(in srgb, var(--dream-ink) 13%, transparent)",
+    "--color-background-button-secondary-hover": "color-mix(in srgb, var(--dream-ink) 10%, transparent)",
+    "--color-background-button-secondary-inactive": "color-mix(in srgb, var(--dream-ink) 4%, transparent)",
+    "--color-background-button-tertiary": "transparent",
+    "--color-background-button-tertiary-active": "color-mix(in srgb, var(--dream-ink) 14%, transparent)",
+    "--color-background-button-tertiary-hover": "color-mix(in srgb, var(--dream-ink) 9%, transparent)",
+    "--color-background-control": "color-mix(in srgb, var(--dream-surface-elevated) 94%, transparent)",
+    "--color-background-control-opaque": "var(--dream-surface-elevated)",
+    "--color-background-editor-opaque": "var(--dream-surface-panel)",
+    "--color-background-elevated-primary": "color-mix(in srgb, var(--dream-surface-elevated) 96%, transparent)",
+    "--color-background-elevated-primary-opaque": "var(--dream-surface-elevated)",
+    "--color-background-elevated-secondary": "color-mix(in srgb, var(--dream-surface-panel) 94%, transparent)",
+    "--color-background-elevated-secondary-opaque": "var(--dream-surface-panel)",
+    "--color-background-panel": "var(--dream-surface-panel)",
+    "--color-background-surface": "var(--dream-page-bg-0)",
+    "--color-background-surface-under": "var(--dream-page-bg-1)",
+    "--color-border": "var(--dream-border-subtle)",
+    "--color-border-focus": "var(--dream-purple)",
+    "--color-border-heavy": "color-mix(in srgb, var(--dream-ink) 18%, transparent)",
+    "--color-border-light": "color-mix(in srgb, var(--dream-ink) 7%, transparent)",
+    "--color-icon-accent": "var(--dream-purple)",
+    "--color-icon-primary": "var(--dream-ink)",
+    "--color-icon-secondary": "var(--dream-text-secondary)",
+    "--color-icon-tertiary": "var(--dream-text-tertiary)",
+    "--color-simple-scrim": "color-mix(in srgb, var(--dream-ink) 10%, transparent)",
+    "--color-text-accent": "var(--dream-purple)",
+    "--color-text-on-accent": "white",
+    "--color-text-button-primary": "white",
+    "--color-text-button-secondary": "var(--dream-ink)",
+    "--color-text-button-tertiary": "var(--dream-text-tertiary)",
+    "--color-text-foreground": "var(--dream-ink)",
+    "--color-text-foreground-secondary": "var(--dream-text-secondary)",
+    "--color-text-foreground-tertiary": "var(--dream-text-tertiary)",
+    // Current Codex builds expose a newer token namespace for utility classes.
+    // Set the high-value aliases directly as a compatibility guard; older
+    // builds simply ignore unused custom properties.
+    "--color-token-main-surface-primary": "var(--dream-page-bg-0)",
+    "--color-token-main-surface-secondary": "var(--dream-page-bg-1)",
+    "--color-token-sidebar-surface-primary": "var(--dream-surface-panel)",
+    "--color-token-dropdown-background": "var(--dream-surface-elevated)",
+    "--color-token-input-background": "var(--dream-surface-elevated)",
+    "--color-token-terminal-background": "var(--dream-page-bg-0)",
+    "--color-token-terminal-foreground": "var(--dream-ink)",
+  };
+  const HOST_OVERRIDE_TOKENS = [...new Set([
+    ...Object.keys(NATIVE_THEME_TOKENS.light),
+    ...Object.keys(NATIVE_THEME_TOKENS.dark),
+    ...Object.keys(SKIN_HOST_TOKENS),
+  ])];
+  const XTERM_THEME_TO_CSS = {
+    background: "--vscode-terminal-background",
+    foreground: "--vscode-terminal-foreground",
+    cursor: "--vscode-terminal-cursor-foreground",
+    black: "--vscode-terminal-ansiBlack",
+    red: "--vscode-terminal-ansiRed",
+    green: "--vscode-terminal-ansiGreen",
+    yellow: "--vscode-terminal-ansiYellow",
+    blue: "--vscode-terminal-ansiBlue",
+    magenta: "--vscode-terminal-ansiMagenta",
+    cyan: "--vscode-terminal-ansiCyan",
+    white: "--vscode-terminal-ansiWhite",
+    brightBlack: "--vscode-terminal-ansiBrightBlack",
+    brightRed: "--vscode-terminal-ansiBrightRed",
+    brightGreen: "--vscode-terminal-ansiBrightGreen",
+    brightYellow: "--vscode-terminal-ansiBrightYellow",
+    brightBlue: "--vscode-terminal-ansiBrightBlue",
+    brightMagenta: "--vscode-terminal-ansiBrightMagenta",
+    brightCyan: "--vscode-terminal-ansiBrightCyan",
+    brightWhite: "--vscode-terminal-ansiBrightWhite",
+  };
+  const TERMINAL_DIRECT_TOKENS = [
+    "--codex-base-surface", "--codex-base-ink", "--codex-base-accent",
+    "--color-token-terminal-background", "--color-token-terminal-foreground",
+    ...Object.values(XTERM_THEME_TO_CSS),
+  ];
+  const TERMINAL_OVERRIDE_TOKENS = [...new Set([
+    ...HOST_OVERRIDE_TOKENS,
+    ...TERMINAL_DIRECT_TOKENS,
+  ])];
   window.__CODEX_DREAM_SKIN_DISABLED__ = false;
 
   const previous = window[STATE_KEY];
   if (previous?.observer) previous.observer.disconnect();
   if (previous?.timer) clearInterval(previous.timer);
   if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
+  if (previous?.keyHandler) document.removeEventListener("keydown", previous.keyHandler, true);
+  if (previous?.resizeHandler) removeEventListener("resize", previous.resizeHandler);
+  document.getElementById(ENTRY_ID)?.remove();
+  document.getElementById(PANEL_ID)?.remove();
+  document.getElementById(TRANSITION_ID)?.remove();
   const createObjectUrl = (dataUrl) => {
     const comma = dataUrl.indexOf(",");
     const mime = dataUrl.slice(5, dataUrl.indexOf(";")) || "image/png";
@@ -41,7 +185,7 @@
   // so replacing a theme's art file takes effect on live re-injection without a
   // renderer reload (stale blobs are revoked below).
   const artSignature = (assets) =>
-    `${assets.home.length}:${assets.home.slice(-24)}|${assets.chat.length}:${assets.chat.slice(-24)}`;
+    `${assets.home.length}:${assets.home.slice(-24)}|${assets.chat.length}:${assets.chat.slice(-24)}|${assets.preview.length}:${assets.preview.slice(-24)}`;
   const artSigs = Object.fromEntries(
     Object.entries(artAssets).map(([theme, assets]) => [theme, artSignature(assets)])
   );
@@ -51,16 +195,19 @@
     Object.entries(artAssets).map(([theme, assets]) => [theme, {
       home: createObjectUrl(assets.home),
       chat: assets.chat === assets.home ? null : createObjectUrl(assets.chat),
+      preview: assets.preview === assets.home ? null : createObjectUrl(assets.preview),
     }])
   );
   if (!previousUrlsUsable && previous?.artUrls) {
     for (const assets of Object.values(previous.artUrls)) {
       if (assets.home) URL.revokeObjectURL(assets.home);
       if (assets.chat && assets.chat !== assets.home) URL.revokeObjectURL(assets.chat);
+      if (assets.preview && assets.preview !== assets.home && assets.preview !== assets.chat) URL.revokeObjectURL(assets.preview);
     }
   }
   for (const assets of Object.values(artUrls)) {
     if (!assets.chat) assets.chat = assets.home;
+    if (!assets.preview) assets.preview = assets.home;
   }
   const existingStyle = document.getElementById(STYLE_ID);
   if (existingStyle) {
@@ -85,6 +232,26 @@
     return THEMES.has(previous?.theme) ? previous.theme : DEFAULT_THEME;
   };
   let activeTheme = readTheme();
+  let nativeMode = (() => {
+    try { return localStorage.getItem(MODE_STORAGE_KEY) === "native"; } catch {}
+    return previous?.nativeMode === true;
+  })();
+  let suggestionsVisible = (() => {
+    try {
+      const stored = localStorage.getItem(SUGGESTIONS_STORAGE_KEY);
+      if (stored === "visible") return true;
+      if (stored === "hidden") return false;
+    } catch {}
+    return previous?.suggestionsVisible === true;
+  })();
+  let nativeTokenSnapshot = previous?.nativeTokenSnapshot ?? null;
+  let terminalSnapshots = previous?.terminalSnapshots instanceof Map
+    ? previous.terminalSnapshots
+    : previous?.nativeTerminalSnapshots instanceof Map
+      ? previous.nativeTerminalSnapshots
+    : new Map();
+  let switcherSnapshot = null;
+  let appearanceSequence = 0;
 
   const syncThemeMeta = () => {
     const meta = THEME_META[activeTheme];
@@ -92,9 +259,9 @@
     const brand = chrome?.querySelector(".dream-brand b");
     const edition = chrome?.querySelector(".dream-brand small");
     const signature = chrome?.querySelector(".dream-signature");
-    if (brand) brand.textContent = meta.brand;
-    if (edition) edition.textContent = meta.edition;
-    if (signature) signature.textContent = meta.signature;
+    if (brand && brand.textContent !== meta.brand) brand.textContent = meta.brand;
+    if (edition && edition.textContent !== meta.edition) edition.textContent = meta.edition;
+    if (signature && signature.textContent !== meta.signature) signature.textContent = meta.signature;
     if (!chrome) return;
     // Opt-in stickers (theme.json "stickers"): text goes through textContent
     // only, visibility through marker classes consumed by the structure CSS.
@@ -103,52 +270,607 @@
     chrome.classList.toggle("dream-has-board", Boolean(stickers?.board));
     chrome.classList.toggle("dream-has-corner", Boolean(stickers?.corner));
     const bubbleText = chrome.querySelector(".dream-sticker-bubble > span");
-    if (bubbleText) bubbleText.textContent = stickers?.bubble?.text ?? "";
+    if (bubbleText && bubbleText.textContent !== (stickers?.bubble?.text ?? "")) bubbleText.textContent = stickers?.bubble?.text ?? "";
     const boardLines = stickers?.board?.lines ?? [];
     chrome.querySelectorAll(".dream-sticker-board > span").forEach((line, index) => {
-      line.textContent = boardLines[index] ?? "";
-      line.style.display = boardLines[index] ? "" : "none";
+      if (line.textContent !== (boardLines[index] ?? "")) line.textContent = boardLines[index] ?? "";
+      const display = boardLines[index] ? "" : "none";
+      if (line.style.display !== display) line.style.display = display;
     });
   };
 
+  const persistAppearance = () => {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, activeTheme);
+      localStorage.setItem(LAYOUT_STORAGE_KEY, activeLayout);
+    } catch {}
+  };
+
+  const persistMode = () => {
+    try { localStorage.setItem(MODE_STORAGE_KEY, nativeMode ? "native" : "skin"); } catch {}
+  };
+
+  const persistSuggestions = () => {
+    try { localStorage.setItem(SUGGESTIONS_STORAGE_KEY, suggestionsVisible ? "visible" : "hidden"); } catch {}
+  };
+
+  const syncSuggestionVisibility = () => {
+    const hidden = !nativeMode && !suggestionsVisible;
+    document.documentElement?.classList.toggle("autoskin-suggestions-hidden", hidden);
+    const toggle = document.querySelector(`#${PANEL_ID} [data-action="toggle-suggestions"]`);
+    if (toggle) {
+      toggle.setAttribute("aria-checked", String(suggestionsVisible));
+      toggle.disabled = nativeMode;
+    }
+  };
+
+  const setSuggestionsVisible = (visible, persist = true) => {
+    suggestionsVisible = Boolean(visible);
+    if (persist) persistSuggestions();
+    syncSuggestionVisibility();
+    syncSwitcher();
+    return suggestionsVisible;
+  };
+
+  const applyHostTokens = (tokens) => {
+    const root = document.documentElement;
+    if (!root) return;
+    if (!nativeTokenSnapshot) {
+      nativeTokenSnapshot = Object.fromEntries(HOST_OVERRIDE_TOKENS.map((name) => [name, {
+        value: root.style.getPropertyValue(name),
+        priority: root.style.getPropertyPriority(name),
+      }]));
+    } else {
+      // A live watcher may upgrade an older payload whose snapshot predates a
+      // newly bridged token. Extend it before overriding so cleanup remains
+      // exact across hot reinjection.
+      for (const name of HOST_OVERRIDE_TOKENS) {
+        if (Object.hasOwn(nativeTokenSnapshot, name)) continue;
+        nativeTokenSnapshot[name] = {
+          value: root.style.getPropertyValue(name),
+          priority: root.style.getPropertyPriority(name),
+        };
+      }
+    }
+    for (const [name, value] of Object.entries(tokens)) root.style.setProperty(name, value);
+  };
+
+  const applyNativeHostTheme = () => {
+    const root = document.documentElement;
+    if (!root) return;
+    const variant = root.classList.contains("electron-dark") ? "dark" : "light";
+    applyHostTokens(NATIVE_THEME_TOKENS[variant]);
+  };
+
+  const applySkinHostTheme = () => applyHostTokens(SKIN_HOST_TOKENS);
+
+  const restoreHostTheme = () => {
+    const root = document.documentElement;
+    if (!root || !nativeTokenSnapshot) return;
+    for (const [name, saved] of Object.entries(nativeTokenSnapshot)) {
+      if (saved.value) root.style.setProperty(name, saved.value, saved.priority || "");
+      else root.style.removeProperty(name);
+    }
+    nativeTokenSnapshot = null;
+  };
+
+  // Codex copies its palette onto each mounted terminal. xterm then caches the
+  // resolved colors in generated CSS, so changing only the document root leaves
+  // an already-open terminal tinted. Locate the public xterm instance through
+  // the terminal component's React hooks and update its supported theme API.
+  const findXtermInstance = (panel) => {
+    const candidates = [panel, ...panel.querySelectorAll(".xterm")];
+    for (const candidate of candidates) {
+      const fiberKey = Object.keys(candidate).find((key) => key.startsWith("__reactFiber$"));
+      let fiber = fiberKey ? candidate[fiberKey] : null;
+      for (let depth = 0; fiber && depth < 8; depth += 1, fiber = fiber.return) {
+        let hook = fiber.memoizedState;
+        for (let index = 0; hook && index < 100; index += 1, hook = hook.next) {
+          const value = hook.memoizedState?.current;
+          if (value && typeof value === "object" && value.options &&
+              typeof value.refresh === "function" && typeof value.open === "function") {
+            return value;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const terminalThemeFromComputedStyle = (element, tokens) => {
+    const style = getComputedStyle(element);
+    const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
+    const foreground = read("--vscode-terminal-foreground", tokens["--codex-base-ink"]);
+    return {
+      background: read("--vscode-terminal-background", tokens["--codex-base-surface"]),
+      foreground,
+      cursor: foreground,
+      black: read("--vscode-terminal-ansiBlack", foreground),
+      red: read("--vscode-terminal-ansiRed", tokens["--color-decoration-deleted"]),
+      green: read("--vscode-terminal-ansiGreen", tokens["--color-decoration-added"]),
+      yellow: read("--vscode-terminal-ansiYellow", "#ffc300"),
+      blue: read("--vscode-terminal-ansiBlue", tokens["--color-accent-blue"]),
+      magenta: read("--vscode-terminal-ansiMagenta", tokens["--color-accent-purple"]),
+      cyan: read("--vscode-terminal-ansiCyan", tokens["--color-accent-blue"]),
+      white: read("--vscode-terminal-ansiWhite", foreground),
+      brightBlack: read("--vscode-terminal-ansiBrightBlack", foreground),
+      brightRed: read("--vscode-terminal-ansiBrightRed", tokens["--color-decoration-deleted"]),
+      brightGreen: read("--vscode-terminal-ansiBrightGreen", tokens["--color-decoration-added"]),
+      brightYellow: read("--vscode-terminal-ansiBrightYellow", "#ffc300"),
+      brightBlue: read("--vscode-terminal-ansiBrightBlue", tokens["--color-accent-blue"]),
+      brightMagenta: read("--vscode-terminal-ansiBrightMagenta", tokens["--color-accent-purple"]),
+      brightCyan: read("--vscode-terminal-ansiBrightCyan", tokens["--color-accent-blue"]),
+      brightWhite: read("--vscode-terminal-ansiBrightWhite", foreground),
+    };
+  };
+
+  const sameTerminalTheme = (current, next) =>
+    Object.entries(next).every(([name, value]) => current?.[name] === value);
+
+  const skinTerminalTheme = (fallback = {}) => {
+    const root = document.documentElement;
+    if (!root) return fallback;
+    const style = getComputedStyle(root);
+    const read = (name, value) => style.getPropertyValue(name).trim() || value;
+    const background = read("--dream-page-bg-0", fallback.background || "#ffffff");
+    const foreground = read("--dream-ink", fallback.foreground || "#1a1c1f");
+    const accent = read("--dream-purple", fallback.cursor || foreground);
+    const violet = read("--dream-violet", fallback.magenta || accent);
+    const pink = read("--dream-pink", fallback.cyan || accent);
+    const under = read("--dream-page-bg-1", fallback.black || background);
+    return {
+      ...fallback,
+      background,
+      foreground,
+      cursor: accent,
+      black: under,
+      blue: accent,
+      magenta: violet,
+      cyan: pink,
+      white: foreground,
+      brightBlack: fallback.brightBlack || foreground,
+      brightBlue: accent,
+      brightMagenta: violet,
+      brightCyan: pink,
+      brightWhite: foreground,
+    };
+  };
+
+  const restoreTerminalProperties = (panel, snapshot) => {
+    for (const [name, saved] of Object.entries(snapshot.tokens)) {
+      if (saved.value) panel.style.setProperty(name, saved.value, saved.priority || "");
+      else panel.style.removeProperty(name);
+    }
+  };
+
+  const applyTerminalCssTheme = (panel, theme) => {
+    panel.style.setProperty("--codex-base-surface", theme.background);
+    panel.style.setProperty("--codex-base-ink", theme.foreground);
+    panel.style.setProperty("--codex-base-accent", theme.cursor);
+    panel.style.setProperty("--color-token-terminal-background", theme.background);
+    panel.style.setProperty("--color-token-terminal-foreground", theme.foreground);
+    for (const [name, token] of Object.entries(XTERM_THEME_TO_CSS)) {
+      if (theme[name]) panel.style.setProperty(token, theme[name]);
+    }
+  };
+
+  const syncTerminalThemes = (mode) => {
+    const root = document.documentElement;
+    if (!root) return;
+    const variant = root.classList.contains("electron-dark") ? "dark" : "light";
+    const nativeTokens = NATIVE_THEME_TOKENS[variant];
+    for (const panel of document.querySelectorAll('[data-codex-terminal="true"][data-codex-xterm="true"]')) {
+      const xterm = findXtermInstance(panel);
+      if (!terminalSnapshots.has(panel)) {
+        terminalSnapshots.set(panel, {
+          tokens: Object.fromEntries(TERMINAL_OVERRIDE_TOKENS.map((name) => [name, {
+            value: panel.style.getPropertyValue(name),
+            priority: panel.style.getPropertyPriority(name),
+          }])),
+          xtermTheme: xterm?.options?.theme ? { ...xterm.options.theme } : null,
+        });
+      }
+      const snapshot = terminalSnapshots.get(panel);
+      if (!snapshot.xtermTheme && xterm?.options?.theme) snapshot.xtermTheme = { ...xterm.options.theme };
+      restoreTerminalProperties(panel, snapshot);
+      if (mode === "native") {
+        for (const [name, value] of Object.entries(nativeTokens)) panel.style.setProperty(name, value);
+      }
+      const nextTheme = mode === "native"
+        ? terminalThemeFromComputedStyle(root, nativeTokens)
+        : skinTerminalTheme(snapshot.xtermTheme || xterm?.options?.theme || {});
+      applyTerminalCssTheme(panel, nextTheme);
+      if (xterm?.options) {
+        if (!sameTerminalTheme(xterm.options.theme, nextTheme)) {
+          xterm.options.theme = { ...(xterm.options.theme || {}), ...nextTheme };
+        }
+      }
+    }
+  };
+
+  const applyNativeTerminalThemes = () => syncTerminalThemes("native");
+  const applySkinTerminalThemes = () => syncTerminalThemes("skin");
+
+  const restoreTerminalThemes = () => {
+    for (const [panel, snapshot] of terminalSnapshots) {
+      restoreTerminalProperties(panel, snapshot);
+      const xterm = findXtermInstance(panel);
+      if (xterm?.options && snapshot.xtermTheme &&
+          !sameTerminalTheme(xterm.options.theme, snapshot.xtermTheme)) {
+        xterm.options.theme = { ...snapshot.xtermTheme };
+      }
+    }
+    terminalSnapshots.clear();
+  };
+
+  const clearSkinAppearance = () => {
+    const root = document.documentElement;
+    if (root) {
+      for (const cls of [...root.classList]) {
+        if (cls === "codex-dream-skin" || cls.startsWith("dream-theme-") ||
+            cls.startsWith("dream-layout-") || cls.startsWith("dream-template-")) {
+          root.classList.remove(cls);
+        }
+      }
+      root.style.removeProperty("--dream-art");
+      root.style.removeProperty("--dream-home-art");
+      root.style.removeProperty("--dream-chat-art");
+      root.classList.remove("autoskin-suggestions-hidden");
+    }
+    document.querySelectorAll(".dream-home").forEach((node) => node.classList.remove("dream-home"));
+    document.querySelectorAll(".dream-home-shell").forEach((node) => node.classList.remove("dream-home-shell"));
+    document.querySelectorAll(".dream-new-task").forEach((node) => node.classList.remove("dream-new-task"));
+    document.getElementById(CHROME_ID)?.remove();
+    document.getElementById(TRANSITION_ID)?.remove();
+    applyNativeHostTheme();
+    applyNativeTerminalThemes();
+  };
+
+  const setNativeMode = (enabled = true, persist = true) => {
+    nativeMode = Boolean(enabled);
+    if (persist) persistMode();
+    if (nativeMode) clearSkinAppearance();
+    syncSuggestionVisibility();
+    syncSwitcher();
+    return nativeMode;
+  };
+
+  const activateSkinMode = (persist = true) => {
+    if (!nativeMode) return;
+    restoreTerminalThemes();
+    nativeMode = false;
+    if (persist) persistMode();
+    document.documentElement?.classList.add("codex-dream-skin");
+    syncSuggestionVisibility();
+  };
+
   const applyLayout = (layout, persist = true) => {
+    activateSkinMode(persist);
     activeLayout = LAYOUTS.has(layout) ? layout : DEFAULT_LAYOUT;
     const root = document.documentElement;
     root?.classList.toggle("dream-layout-banner", activeLayout === "banner");
     root?.classList.toggle("dream-layout-fullscreen", activeLayout === "fullscreen");
-    if (persist) {
-      try { localStorage.setItem(LAYOUT_STORAGE_KEY, activeLayout); } catch {}
-    }
+    applySkinHostTheme();
+    syncSuggestionVisibility();
+    if (persist) persistAppearance();
+    syncSwitcher();
   };
 
-  const applyTheme = (theme, persist = true) => {
+  const applyAppearance = ({ theme = activeTheme, layout = activeLayout } = {}, persist = true) => {
+    activateSkinMode(persist);
     activeTheme = THEMES.has(theme) ? theme : DEFAULT_THEME;
+    activeLayout = LAYOUTS.has(layout) ? layout : DEFAULT_LAYOUT;
     const root = document.documentElement;
     if (root) {
-      // Strip every dream-theme-* class (including stale ones from an older
-      // manifest), then set the active one.
       for (const cls of [...root.classList]) {
-        if (cls.startsWith("dream-theme-") && cls !== `dream-theme-${activeTheme}`) root.classList.remove(cls);
+        if ((cls.startsWith("dream-theme-") && cls !== `dream-theme-${activeTheme}`) ||
+            cls.startsWith("dream-template-") ||
+            (cls.startsWith("dream-layout-") && cls !== `dream-layout-${activeLayout}`)) {
+          root.classList.remove(cls);
+        }
       }
       root.classList.add(`dream-theme-${activeTheme}`);
+      root.classList.add(`dream-layout-${activeLayout}`);
     }
+    applySkinHostTheme();
+    syncSuggestionVisibility();
     const assets = artUrls[activeTheme] || artUrls[DEFAULT_THEME];
     root?.style.setProperty("--dream-home-art", `url("${assets.home}")`);
     root?.style.setProperty("--dream-chat-art", `url("${assets.chat}")`);
     root?.style.setProperty("--dream-art", `url("${assets.home}")`);
-    if (persist) {
-      try { localStorage.setItem(THEME_STORAGE_KEY, activeTheme); } catch {}
-    }
+    applySkinTerminalThemes();
+    if (persist) persistAppearance();
     syncThemeMeta();
+    syncSwitcher();
+    return { theme: activeTheme, layout: activeLayout };
+  };
+
+  const applyTheme = (theme, persist = true) => applyAppearance({ theme, layout: activeLayout }, persist);
+
+  const decodeTheme = async (theme) => {
+    const assets = artUrls[theme];
+    if (!assets) throw new Error(`unknown theme: ${theme}`);
+    await Promise.all([assets.home, assets.chat].map((src) => new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = resolve;
+      image.onerror = () => reject(new Error("The background image could not be decoded"));
+      image.src = src;
+      if (image.decode) image.decode().then(resolve, reject);
+    })));
+  };
+
+  const addThemeCrossfade = (oldTheme) => {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const shell = document.querySelector("main.main-surface") || document.querySelector("main");
+    const oldAssets = artUrls[oldTheme];
+    if (!shell || !oldAssets || !document.body) return;
+    document.getElementById(TRANSITION_ID)?.remove();
+    const box = shell.getBoundingClientRect();
+    const layer = document.createElement("div");
+    layer.id = TRANSITION_ID;
+    layer.style.left = `${Math.round(box.left)}px`;
+    layer.style.top = `${Math.round(box.top)}px`;
+    layer.style.width = `${Math.round(box.width)}px`;
+    layer.style.height = `${Math.round(box.height)}px`;
+    layer.style.backgroundImage = `url("${oldAssets.home}")`;
+    document.body.appendChild(layer);
+    requestAnimationFrame(() => requestAnimationFrame(() => { layer.dataset.fade = "true"; }));
+    setTimeout(() => layer.remove(), 260);
+  };
+
+  const setStatus = (message = "", kind = "status") => {
+    const status = document.querySelector(`#${PANEL_ID} .autoskin-status`);
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.kind = kind;
+  };
+
+  const selectThemeFromSwitcher = async (theme) => {
+    if (!THEMES.has(theme) || (theme === activeTheme && !nativeMode)) return;
+    const sequence = ++appearanceSequence;
+    const oldTheme = activeTheme;
+    const wasNative = nativeMode;
+    setStatus("Preparing background…");
+    try {
+      await decodeTheme(theme);
+      if (sequence !== appearanceSequence) return;
+      if (!wasNative) addThemeCrossfade(oldTheme);
+      applyAppearance({ theme, layout: DEFAULT_LAYOUT }, true);
+      setStatus("Applied");
+    } catch (error) {
+      if (sequence !== appearanceSequence) return;
+      setStatus(error.message || "Could not apply theme", "error");
+      if (wasNative) setNativeMode(true, false);
+      else applyAppearance({ theme: oldTheme, layout: activeLayout }, false);
+    }
+  };
+
+  const positionSwitcher = () => {
+    const panel = document.getElementById(PANEL_ID);
+    const button = document.getElementById(ENTRY_BUTTON_ID);
+    if (!panel || !button) return;
+    const compact = innerWidth <= 760;
+    panel.dataset.compact = String(compact);
+    if (compact) {
+      panel.style.left = "";
+      panel.style.top = "";
+      panel.style.width = "";
+      return;
+    }
+    const trigger = button.getBoundingClientRect();
+    const width = Math.min(400, innerWidth - trigger.right - 24);
+    panel.style.width = `${Math.max(340, width)}px`;
+    const panelHeight = Math.min(704, innerHeight - 24);
+    const left = Math.min(innerWidth - Math.max(340, width) - 12, trigger.right + 12);
+    const top = Math.max(12, Math.min(trigger.bottom - panelHeight, innerHeight - panelHeight - 12));
+    panel.style.left = `${Math.round(left)}px`;
+    panel.style.top = `${Math.round(top)}px`;
+  };
+
+  const renderThemeCards = () => {
+    const grid = document.querySelector(`#${PANEL_ID} .autoskin-theme-grid`);
+    const empty = document.querySelector(`#${PANEL_ID} .autoskin-empty`);
+    if (!grid || !empty) return;
+    const query = (document.querySelector(`#${PANEL_ID} .autoskin-search`)?.value || "").trim().toLocaleLowerCase();
+    const names = VISIBLE_THEME_ORDER.filter((name) => {
+      if (!query) return true;
+      const meta = THEME_META[name] ?? {};
+      return `${name} ${meta.displayName ?? ""} ${meta.brand ?? ""}`.toLocaleLowerCase().includes(query);
+    });
+    const cards = names.map((name) => {
+      const meta = THEME_META[name] ?? {};
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "autoskin-theme-card";
+      card.dataset.theme = name;
+      card.setAttribute("role", "radio");
+      card.setAttribute("aria-checked", String(!nativeMode && name === activeTheme));
+      card.setAttribute("aria-label", `${meta.displayName || meta.brand || name}${!nativeMode && name === activeTheme ? ", current theme" : ""}`);
+      const image = document.createElement("img");
+      image.className = "autoskin-preview";
+      image.src = artUrls[name]?.preview || artUrls[name]?.home || "";
+      image.alt = "";
+      image.loading = "lazy";
+      const check = document.createElement("span");
+      check.className = "autoskin-check";
+      check.setAttribute("aria-hidden", "true");
+      check.textContent = "✓";
+      const title = document.createElement("span");
+      title.className = "autoskin-theme-name";
+      title.textContent = meta.displayName || meta.brand || name;
+      card.append(image, check, title);
+      return card;
+    });
+    grid.replaceChildren(...cards);
+    empty.hidden = cards.length > 0;
+    grid.hidden = cards.length === 0;
+  };
+
+  const syncSwitcher = () => {
+    const panel = document.getElementById(PANEL_ID);
+    if (!panel) return;
+    const query = (panel.querySelector(".autoskin-search")?.value || "").trim().toLocaleLowerCase();
+    const renderKey = JSON.stringify({
+      activeTheme,
+      activeLayout,
+      nativeMode,
+      suggestionsVisible,
+      snapshot: switcherSnapshot,
+      query,
+    });
+    if (panel.dataset.renderKey === renderKey) return;
+    panel.dataset.renderKey = renderKey;
+    renderThemeCards();
+    const undo = panel.querySelector('[data-action="undo"]');
+    const dirty = Boolean(switcherSnapshot &&
+      (switcherSnapshot.theme !== activeTheme || switcherSnapshot.layout !== activeLayout ||
+        switcherSnapshot.nativeMode !== nativeMode || switcherSnapshot.suggestionsVisible !== suggestionsVisible));
+    if (undo) undo.hidden = !dirty;
+    const nativeButton = panel.querySelector('[data-action="native"]');
+    if (nativeButton) nativeButton.setAttribute("aria-pressed", String(nativeMode));
+    syncSuggestionVisibility();
+    panel.dataset.native = String(nativeMode);
+    const subtitle = panel.querySelector(".autoskin-panel-subtitle");
+    if (subtitle) subtitle.textContent = nativeMode
+      ? "Codex Original"
+      : THEME_META[activeTheme]?.displayName || THEME_META[activeTheme]?.brand || activeTheme;
+  };
+
+  const closeSwitcher = ({ restoreFocus = false } = {}) => {
+    const panel = document.getElementById(PANEL_ID);
+    const button = document.getElementById(ENTRY_BUTTON_ID);
+    if (!panel) return;
+    appearanceSequence += 1;
+    panel.dataset.open = "false";
+    panel.setAttribute("aria-hidden", "true");
+    button?.setAttribute("aria-expanded", "false");
+    switcherSnapshot = null;
+    if (restoreFocus) button?.focus({ preventScroll: true });
+  };
+
+  const openSwitcher = () => {
+    const panel = document.getElementById(PANEL_ID);
+    const button = document.getElementById(ENTRY_BUTTON_ID);
+    if (!panel || !button) return;
+    switcherSnapshot = { theme: activeTheme, layout: activeLayout, nativeMode, suggestionsVisible };
+    setStatus("");
+    syncSwitcher();
+    positionSwitcher();
+    panel.dataset.open = "true";
+    panel.setAttribute("aria-hidden", "false");
+    button.setAttribute("aria-expanded", "true");
+  };
+
+  const handleRadioKeys = (event) => {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    const current = event.target.closest('[role="radio"]');
+    const group = current?.parentElement;
+    if (!current || !group) return;
+    const radios = [...group.querySelectorAll(':scope > [role="radio"]:not([hidden])')];
+    const index = radios.indexOf(current);
+    if (index < 0 || radios.length < 2) return;
+    event.preventDefault();
+    const delta = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
+    radios[(index + delta + radios.length) % radios.length].focus();
+  };
+
+  const ensureSwitcher = (sidePanel) => {
+    if (!sidePanel || !document.body) return;
+    let entry = document.getElementById(ENTRY_ID);
+    if (!entry || !sidePanel.contains(entry)) {
+      entry?.remove();
+      entry = document.createElement("div");
+      entry.id = ENTRY_ID;
+      const button = document.createElement("button");
+      button.id = ENTRY_BUTTON_ID;
+      button.type = "button";
+      button.setAttribute("aria-label", "Open themes");
+      button.setAttribute("aria-controls", PANEL_ID);
+      button.setAttribute("aria-expanded", "false");
+      button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 0 18h1.2a1.8 1.8 0 0 0 0-3.6h-.7a1.6 1.6 0 0 1 0-3.2H16A5 5 0 0 0 21 9c0-3.3-4-6-9-6Z"/><circle cx="7.5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="6.8" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="7" r="1" fill="currentColor" stroke="none"/></svg><span>Themes</span>';
+      button.addEventListener("click", () => {
+        const panel = document.getElementById(PANEL_ID);
+        if (panel?.dataset.open === "true") closeSwitcher();
+        else openSwitcher();
+      });
+      entry.appendChild(button);
+      const profile = sidePanel.querySelector('button[aria-label="打开个人资料菜单"], button[aria-label="Open profile menu"]');
+      const profileContainer = profile?.parentElement;
+      if (profileContainer?.parentElement && sidePanel.contains(profileContainer.parentElement)) {
+        profileContainer.parentElement.insertBefore(entry, profileContainer.nextSibling);
+      } else {
+        sidePanel.appendChild(entry);
+      }
+    }
+
+    let panel = document.getElementById(PANEL_ID);
+    if (!panel) {
+      panel = document.createElement("section");
+      panel.id = PANEL_ID;
+      panel.dataset.open = "false";
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-modal", "false");
+      panel.setAttribute("aria-hidden", "true");
+      panel.setAttribute("aria-labelledby", "autoskin-panel-title");
+      panel.innerHTML = `
+        <header class="autoskin-panel-header">
+          <div><h2 class="autoskin-panel-title" id="autoskin-panel-title">Themes</h2><p class="autoskin-panel-subtitle"></p></div>
+          <button class="autoskin-icon-button" type="button" data-action="close" aria-label="Close themes">✕</button>
+        </header>
+        <div class="autoskin-theme-list">
+          ${VISIBLE_THEME_ORDER.length > 8 ? '<input class="autoskin-search" type="search" placeholder="Search themes" aria-label="Search themes">' : ''}
+          <div class="autoskin-theme-grid" role="radiogroup" aria-label="Themes"></div>
+          <p class="autoskin-empty" hidden>No matching themes</p>
+          <div class="autoskin-preferences" role="group" aria-label="Theme options">
+            <button class="autoskin-setting-row" type="button" role="switch" aria-checked="false" data-action="toggle-suggestions">
+              <span class="autoskin-setting-copy"><span class="autoskin-setting-title">Show suggestion cards</span><span class="autoskin-setting-description">Display Codex suggestions on Home</span></span>
+              <span class="autoskin-switch-track" aria-hidden="true"><span class="autoskin-switch-thumb"></span></span>
+            </button>
+          </div>
+        </div>
+        <footer class="autoskin-panel-footer"><span class="autoskin-status" role="status" aria-live="polite"></span><div class="autoskin-footer-actions"><button class="autoskin-footer-button" type="button" data-action="native" aria-pressed="false">Codex Original</button><button class="autoskin-footer-button" type="button" data-action="default">AutoSkin Default</button><button class="autoskin-footer-button" data-primary="true" type="button" data-action="undo" hidden>Undo Changes</button></div></footer>`;
+      panel.addEventListener("keydown", handleRadioKeys);
+      panel.addEventListener("click", (event) => {
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        const card = event.target.closest(".autoskin-theme-card");
+        if (action === "close") closeSwitcher({ restoreFocus: true });
+        else if (action === "toggle-suggestions") {
+          setSuggestionsVisible(!suggestionsVisible, true);
+          setStatus(suggestionsVisible ? "Suggestion cards shown" : "Suggestion cards hidden");
+        }
+        else if (action === "native") {
+          setNativeMode(true, true);
+          setStatus("Codex Original restored; choose a theme to enable AutoSkin again");
+        }
+        else if (action === "default") {
+          if (!nativeMode) addThemeCrossfade(activeTheme);
+          applyAppearance({ theme: DEFAULT_THEME, layout: DEFAULT_LAYOUT }, true);
+          setSuggestionsVisible(false, true);
+          setStatus("AutoSkin defaults restored");
+        } else if (action === "undo" && switcherSnapshot) {
+          const snapshot = { ...switcherSnapshot };
+          if (snapshot.nativeMode) setNativeMode(true, true);
+          else {
+            if (!nativeMode) addThemeCrossfade(activeTheme);
+            applyAppearance(snapshot, true);
+          }
+          setSuggestionsVisible(snapshot.suggestionsVisible, true);
+          setStatus("Changes undone");
+        } else if (card?.dataset.theme) {
+          selectThemeFromSwitcher(card.dataset.theme);
+        }
+      });
+      panel.querySelector(".autoskin-search")?.addEventListener("input", renderThemeCards);
+      document.body.appendChild(panel);
+    }
+    syncSwitcher();
+    if (panel.dataset.open === "true") positionSwitcher();
   };
 
   const ensure = () => {
     if (window.__CODEX_DREAM_SKIN_DISABLED__) return;
     const root = document.documentElement;
     if (!root) return;
-    root.classList.add("codex-dream-skin");
-    applyLayout(activeLayout, false);
-    applyTheme(activeTheme, false);
 
     let style = document.getElementById(STYLE_ID);
     if (!style) {
@@ -161,9 +883,24 @@
       style.dataset.dreamVersion = STYLE_VERSION;
     }
 
+    const sidePanel = document.querySelector("aside.app-shell-left-panel");
+    ensureSwitcher(sidePanel);
+    const hostModal = [...document.querySelectorAll('[aria-modal="true"]')]
+      .find((node) => node.id !== PANEL_ID && node.getClientRects().length > 0);
+    if (hostModal && document.getElementById(PANEL_ID)?.dataset.open === "true") closeSwitcher();
+
+    // Native mode keeps only the neutral appearance entry/panel. All selectors
+    // that touch Codex itself are scoped under the removed root class.
+    if (nativeMode) {
+      clearSkinAppearance();
+      return;
+    }
+
+    root.classList.add("codex-dream-skin");
+    applyAppearance({ theme: activeTheme, layout: activeLayout }, false);
+
     // Mark the sidebar "new task" row (first matching nav button) so the CSS
     // capsule style can find it; the button itself stays native and clickable.
-    const sidePanel = document.querySelector("aside.app-shell-left-panel");
     if (sidePanel) {
       let newTaskButton = null;
       for (const button of sidePanel.querySelectorAll("nav button")) {
@@ -175,7 +912,11 @@
     }
 
     const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
-    const home = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
+    // Codex originally exposed data-testid="home-icon" on the home route.
+    // Newer Windows/macOS builds removed that icon but retained the semantic
+    // game-source heading. Support both so the original Windows hero treatment
+    // stays aligned across app versions.
+    const home = document.querySelector('[role="main"]:has([data-testid="home-icon"], [data-feature="game-source"])');
     for (const candidate of document.querySelectorAll('[role="main"].dream-home')) {
       if (candidate !== home) candidate.classList.remove("dream-home");
     }
@@ -249,10 +990,13 @@
 
   const cleanup = () => {
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
+    restoreHostTheme();
+    restoreTerminalThemes();
     const rootElement = document.documentElement;
     if (rootElement) {
       for (const cls of [...rootElement.classList]) {
-        if (cls === "codex-dream-skin" || cls.startsWith("dream-theme-") || cls.startsWith("dream-layout-")) {
+        if (cls === "codex-dream-skin" || cls === "autoskin-suggestions-hidden" ||
+            cls.startsWith("dream-theme-") || cls.startsWith("dream-layout-") || cls.startsWith("dream-template-")) {
           rootElement.classList.remove(cls);
         }
       }
@@ -266,13 +1010,19 @@
     document.getElementById(STYLE_ID)?.remove();
     document.getElementById(CHROME_ID)?.remove();
     document.getElementById(LEGACY_CONTROLS_ID)?.remove();
+    document.getElementById(ENTRY_ID)?.remove();
+    document.getElementById(PANEL_ID)?.remove();
+    document.getElementById(TRANSITION_ID)?.remove();
     const state = window[STATE_KEY];
     state?.observer?.disconnect();
     if (state?.timer) clearInterval(state.timer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
+    if (state?.keyHandler) document.removeEventListener("keydown", state.keyHandler, true);
+    if (state?.resizeHandler) removeEventListener("resize", state.resizeHandler);
     for (const assets of Object.values(state?.artUrls || {})) {
       if (assets.home) URL.revokeObjectURL(assets.home);
       if (assets.chat && assets.chat !== assets.home) URL.revokeObjectURL(assets.chat);
+      if (assets.preview && assets.preview !== assets.home && assets.preview !== assets.chat) URL.revokeObjectURL(assets.preview);
     }
     delete window[STATE_KEY];
     return true;
@@ -289,6 +1039,16 @@
   const observer = new MutationObserver(scheduleEnsure);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   const timer = setInterval(ensure, 5000);
+  const keyHandler = (event) => {
+    if (event.key === "Escape" && document.getElementById(PANEL_ID)?.dataset.open === "true") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeSwitcher({ restoreFocus: true });
+    }
+  };
+  document.addEventListener("keydown", keyHandler, true);
+  const resizeHandler = positionSwitcher;
+  addEventListener("resize", resizeHandler, { passive: true });
   window[STATE_KEY] = {
     ensure,
     cleanup,
@@ -304,8 +1064,22 @@
     setLayout: applyLayout,
     get theme() { return activeTheme; },
     setTheme: applyTheme,
-    version: "2.2.0"
+    get nativeMode() { return nativeMode; },
+    get suggestionsVisible() { return suggestionsVisible; },
+    get nativeTokenSnapshot() { return nativeTokenSnapshot; },
+    get terminalSnapshots() { return terminalSnapshots; },
+    // Kept for one reinjection cycle so an already-running v7 payload can hand
+    // its baseline terminal snapshots to v8 without losing cleanup fidelity.
+    get nativeTerminalSnapshots() { return terminalSnapshots; },
+    setNativeMode,
+    setSuggestionsVisible,
+    setAppearance: applyAppearance,
+    openSwitcher,
+    closeSwitcher,
+    keyHandler,
+    resizeHandler,
+    version: "3.0.0"
   };
   ensure();
-  return { installed: true, version: "2.2.0", layout: activeLayout, theme: activeTheme, themes: [...THEME_ORDER] };
+  return { installed: true, version: "3.0.0", layout: activeLayout, theme: activeTheme, nativeMode, themes: [...THEME_ORDER] };
 })(__DREAM_CSS_JSON__, __DREAM_ART_ASSETS_JSON__, __DREAM_MANIFEST_JSON__)

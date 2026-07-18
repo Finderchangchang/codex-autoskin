@@ -1,6 +1,4 @@
-// Programmatic theme/layout switcher for the running Codex Dream Skin.
-// The skin intentionally has no on-screen switch UI; agents (or users through
-// their agent) change themes with:
+// Advanced programmatic counterpart to the single-purpose in-app Theme panel.
 //
 //   node scripts/set-theme.mjs <theme> [banner|fullscreen] [--port 9335]
 //   node scripts/set-theme.mjs --list
@@ -105,8 +103,11 @@ const expression = `(() => {
   if (request.theme && !themes.includes(request.theme)) {
     return { ok: false, error: "unknown theme: " + request.theme, themes };
   }
-  if (request.theme) state.setTheme(request.theme);
-  if (request.layout) state.setLayout(request.layout);
+  if (state.setAppearance) state.setAppearance({ theme: request.theme || state.theme, layout: request.layout || state.layout });
+  else {
+    if (request.theme) state.setTheme(request.theme);
+    if (request.layout) state.setLayout(request.layout);
+  }
   state.ensure();
   return {
     ok: true,
