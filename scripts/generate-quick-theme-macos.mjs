@@ -39,6 +39,14 @@ function runSips(args) {
   return result.stdout;
 }
 
+function writePreview(image, output, width, height) {
+  const scale = Math.max(480 / width, 270 / height);
+  const resizedWidth = Math.ceil(width * scale);
+  const resizedHeight = Math.ceil(height * scale);
+  runSips(["-z", String(resizedHeight), String(resizedWidth), "-s", "format", "jpeg", image, "--out", output]);
+  runSips(["-c", "270", "480", output]);
+}
+
 function clamp(value, low, high) {
   return Math.min(high, Math.max(low, value));
 }
@@ -261,7 +269,7 @@ async function isQuickTheme(directory) {
   }
 }
 
-async function installTheme({ image, name, themesRoot, reservedRoot, manifest, artFile }) {
+async function installTheme({ image, name, themesRoot, reservedRoot, manifest, artFile, width, height }) {
   const themeDirectory = path.join(themesRoot, name);
   if (reservedRoot && await fs.stat(path.join(reservedRoot, name)).catch(() => null)) {
     throw new Error(`主题 '${name}' 与内置主题重名，请换一个 --name`);
@@ -278,6 +286,7 @@ async function installTheme({ image, name, themesRoot, reservedRoot, manifest, a
   await fs.mkdir(next);
   try {
     await fs.copyFile(image, path.join(next, artFile));
+    writePreview(image, path.join(next, "preview.jpg"), width, height);
     await fs.writeFile(path.join(next, "theme.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     if (existing) await fs.rename(themeDirectory, previous);
     try {
@@ -337,7 +346,7 @@ const manifest = {
     edition: `${title} · AutoSkin`,
     signature: `${title} ✦`,
   },
-  art: { home: artFile, chat: artFile },
+  art: { home: artFile, chat: artFile, preview: "preview.jpg" },
   tokens,
 };
 const themeDirectory = await installTheme({
@@ -347,6 +356,8 @@ const themeDirectory = await installTheme({
   reservedRoot: options.reservedRoot ? path.resolve(options.reservedRoot) : null,
   manifest,
   artFile,
+  width,
+  height,
 });
 console.log(JSON.stringify({
   ok: true,

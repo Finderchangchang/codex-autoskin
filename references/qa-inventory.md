@@ -2,12 +2,12 @@
 
 ## User-visible claims
 
-1. Every theme folder scanned from `themes/` and `themes-private/` is available at runtime; `node scripts/injector.mjs --themes` lists them with the resolved default theme/layout.
+1. Every valid theme folder scanned from `themes/` and `themes-private/` is available at runtime; `node scripts/injector.mjs --themes` lists them with the resolved default theme/layout.
 2. Every theme supports two persisted home layouts: top banner and fullscreen canvas.
 3. The real Codex suggestion buttons occupy the visual middle and the real project selector/composer stays at the bottom in both layouts.
 4. Normal tasks use a separate, faint, subject-focused chat-art layer with a light wash; message text remains dominant.
 5. The sidebar is warm glass rather than merely changing the accent color.
-6. All real Codex controls remain interactive; the skin is not a screenshot overlay and has no on-screen switch UI of its own (switching is programmatic via `scripts/set-theme.mjs`).
+6. All real Codex controls remain interactive. The neutral Theme panel is modeless, adds no dimming scrim, and shares its state with `scripts/set-theme.mjs`; layout remains an advanced compatibility option.
 7. The skin survives route changes and renderer reloads while the injector daemon runs.
 8. The official Store package and `app.asar` remain unchanged.
 9. Restore removes the injected DOM/CSS and install/restore can be repeated.
@@ -19,18 +19,20 @@
 - Sidebar: open a real task, then return to New Task.
 - Composer: type text, verify caret/readability, then clear it without sending.
 - Theme switch: `node scripts/set-theme.mjs <name> [layout]` for each scanned theme; confirm the header copy, accents, home art, and chat art all update, the command's `persisted` output matches, and the final choice survives reload.
+- In-app switcher: open from the real sidebar button; verify there are no template/layout controls, the current marker and previews are correct, Codex-original/default restore and session undo work, Escape returns focus, host modals close the panel, and sidebar redraws do not duplicate the entry.
+- Rapid switch: select several themes before the prior crossfade completes; the last selection must win with exactly one theme/layout class and no stale transition layer.
 - Layout switch: switch between `banner` and `fullscreen`; confirm the native suggestion buttons remain centered and the native composer remains bottom-aligned; confirm the final choice survives reload.
 - Chat route: open a real task in every theme and confirm the full chat-art layer appears only behind the task, not on the home screen.
 - Reload: use CDP `Page.reload`, wait, and confirm the injection marker returns.
 - Normal restart persistence: close all Codex processes, launch it normally without debug arguments, and confirm the platform watcher relaunches it on port 9335 with the saved theme/layout restored.
 - Closed-app behavior: leave Codex closed for at least two watcher polls and confirm the watcher remains idle instead of launching the app.
 - Desktop pet: confirm the `initialRoute=/avatar-overlay` renderer has no Dream Skin class, style, chrome, or state and its computed body background is transparent; reload that renderer and confirm it stays clean.
-- Restore/reapply cycle: remove live skin, verify marker absent (no `codex-dream-skin`/`dream-theme-*`/`dream-layout-*` classes, no injected nodes, no state object, no inline `--dream-*` vars, no `.dream-new-task` marker, composer placeholder back to the native text), apply again, verify marker present.
+- Restore/reapply cycle: remove live skin, verify marker absent (no `codex-dream-skin`/`dream-theme-*`/`dream-layout-*` classes, no switcher/chrome/style/state, no inline `--dream-*` vars), apply again, verify marker present.
 - Hit testing: `document.elementsFromPoint` at the center of the sidebar new-task button, the profile button, every suggestion card, the composer input, and the send button must resolve to the real control (or a descendant), with the chrome layer and every sticker computed as `pointer-events: none`.
 - Card subtitles: themes with `cards.subtitles` show them under the native card titles; narrowing the window so the native grid drops to 3 and 2 cards must drop the matching subtitles with no misalignment; themes without the field show no subtitle.
 - Stickers: only themes with a `stickers` field show them, fullscreen home only (never banner, never chat), never overlapping a native control; public demo themes ship without stickers and README screenshots must not contain personal promo text.
 - Themed placeholder: only themes with `composer.placeholder` change the home composer placeholder; the chat/task composer keeps its native placeholder in every theme.
-- Theme validation: a theme with a missing required token, a bad folder name, or an unscoped `extra.css` must be skipped/rejected with a `[dream-skin]` warning on stderr and must not break the remaining themes.
+- Theme validation: a missing required token, bad folder name, missing art, or unscoped `extra.css` must be rejected with a clear warning without breaking valid themes.
 - Update resilience: Windows resolves the current `OpenAI.Codex` Appx location dynamically; macOS discovers `ChatGPT.app` / `Codex.app` and reads `CFBundleExecutable` from `Info.plist`. Never store a versioned executable path.
 - macOS lifecycle: launch the app bundle through LaunchServices and confirm it remains alive after the invoking shell exits; do not execute `Contents/MacOS/ChatGPT` directly.
 - macOS screenshot: `verify-dream-skin.sh --screenshot <path>` captures the Codex window itself by Quartz window ID even when another app overlaps it; it must not use CDP `Page.captureScreenshot`.

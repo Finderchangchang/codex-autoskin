@@ -13,7 +13,8 @@
   },
   "art": {
     "home": "art.png",
-    "chat": "art.png"
+    "chat": "art.png",
+    "preview": "preview.webp"
   },
   "cards": {
     "subtitles": [

@@ -1,12 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { verifyRuntimeResult } from "./runtime-verification.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
 function parseArgs(argv) {
-  const options = { port: 9335, mode: "watch", timeoutMs: 30000, screenshot: null, reload: false };
+  const options = { port: 9335, mode: "watch", timeoutMs: 30000, screenshot: null, reload: false, payloadFile: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--port") options.port = Number(argv[++i]);
@@ -15,6 +16,7 @@ function parseArgs(argv) {
     else if (arg === "--verify") options.mode = "verify";
     else if (arg === "--remove") options.mode = "remove";
     else if (arg === "--themes") options.mode = "themes";
+    else if (arg === "--payload-file") { options.mode = "payload"; options.payloadFile = path.resolve(argv[++i]); }
     else if (arg === "--timeout-ms") options.timeoutMs = Number(argv[++i]);
     else if (arg === "--screenshot") options.screenshot = path.resolve(argv[++i]);
     else if (arg === "--reload") options.reload = true;
@@ -311,7 +313,6 @@ function normalizeStickers(name, config) {
 }
 
 const MIME_BY_EXT = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" };
-
 // Split a CSS block body into top-level rules ({prelude, body}) without parsing
 // the full grammar. Comments must already be stripped.
 function extractTopLevelRules(css) {
@@ -373,21 +374,21 @@ function validateExtraCssScope(css, themeName) {
   return errors;
 }
 
-function validateTokens(name, tokens) {
+function validateTokenMap(owner, tokens, { required = [] } = {}) {
   if (!tokens || typeof tokens !== "object" || Array.isArray(tokens)) {
-    return { errors: [`theme "${name}": "tokens" must be an object`] };
+    return { errors: [`${owner}: tokens must be an object`] };
   }
   const errors = [];
   for (const [key, value] of Object.entries(tokens)) {
-    if (!TOKEN_KEY_PATTERN.test(key)) errors.push(`theme "${name}": invalid token name "${key}"`);
+    if (!TOKEN_KEY_PATTERN.test(key)) errors.push(`${owner}: invalid token name "${key}"`);
     if (typeof value !== "string" || !value.trim()) {
-      errors.push(`theme "${name}": token "${key}" must be a non-empty string`);
+      errors.push(`${owner}: token "${key}" must be a non-empty string`);
     } else if (/[{};]/.test(value) || /<\//.test(value)) {
-      errors.push(`theme "${name}": token "${key}" contains forbidden characters`);
+      errors.push(`${owner}: token "${key}" contains forbidden characters`);
     }
   }
-  for (const key of REQUIRED_TOKENS) {
-    if (!(key in tokens)) errors.push(`theme "${name}": missing required token "${key}"`);
+  for (const key of required) {
+    if (!(key in tokens)) errors.push(`${owner}: missing required token "${key}"`);
   }
   return { errors };
 }
@@ -423,7 +424,10 @@ async function loadThemeDir(baseName, dirName) {
     warn(`theme "${name}" skipped: meta.${metaErrors.join(", meta.")} missing or empty`);
     return null;
   }
-  const { errors: tokenErrors } = validateTokens(name, config.tokens);
+  const mergedTokens = { ...deriveDecorTokens(name, config), ...(config.tokens ?? {}) };
+  const { errors: tokenErrors } = validateTokenMap(`theme "${name}"`, mergedTokens, {
+    required: REQUIRED_TOKENS,
+  });
   if (tokenErrors.length) {
     for (const error of tokenErrors) warn(error);
     warn(`theme "${name}" skipped because of invalid tokens`);
@@ -432,14 +436,15 @@ async function loadThemeDir(baseName, dirName) {
   const art = config.art ?? {};
   const homeFile = art.home ?? "art.png";
   const chatFile = art.chat ?? homeFile;
+  const previewFile = art.preview ?? homeFile;
   const artUrls = {};
-  for (const [role, file] of Object.entries({ home: homeFile, chat: chatFile })) {
+  for (const [role, file] of Object.entries({ home: homeFile, chat: chatFile, preview: previewFile })) {
     if (typeof file !== "string" || !ART_FILE_PATTERN.test(file)) {
       warn(`theme "${name}" skipped: art.${role} ("${file}") must be a plain png/jpg/webp filename inside the theme folder`);
       return null;
     }
-    if (role === "chat" && file === homeFile && artUrls.home) {
-      artUrls.chat = artUrls.home;
+    if (file === homeFile && artUrls.home) {
+      artUrls[role] = artUrls.home;
       continue;
     }
     try {
@@ -473,9 +478,10 @@ async function loadThemeDir(baseName, dirName) {
       brand: meta.brand,
       edition: meta.edition,
       signature: meta.signature,
+      displayName: typeof meta.displayName === "string" && meta.displayName.trim() ? meta.displayName.trim() : meta.brand,
     },
     // Derived decor tokens first so hand-written tokens of the same name win.
-    tokens: { ...deriveDecorTokens(name, config), ...config.tokens },
+    tokens: mergedTokens,
     stickers: normalizeStickers(name, config.stickers),
     extraCss,
     artUrls,
@@ -524,12 +530,13 @@ function buildThemeCss(themes) {
 }
 
 async function loadPayload() {
-  const [structureCss, template, { themes, defaultTheme }] = await Promise.all([
+  const [structureCss, switcherCss, runtime, { themes, defaultTheme }] = await Promise.all([
     fs.readFile(path.join(root, "styles", "dream", "style.css"), "utf8"),
+    fs.readFile(path.join(root, "styles", "common.css"), "utf8"),
     fs.readFile(path.join(root, "assets", "renderer-inject.js"), "utf8"),
     loadThemes(),
   ]);
-  const css = `${structureCss}\n\n/* --- generated theme token blocks --- */\n\n${buildThemeCss(themes)}\n`;
+  const css = `${structureCss}\n\n/* --- theme switcher --- */\n\n${switcherCss}\n\n/* --- generated theme token blocks --- */\n\n${buildThemeCss(themes)}\n`;
   const artAssets = Object.fromEntries(themes.map((theme) => [theme.name, theme.artUrls]));
   const manifest = {
     order: themes.map((theme) => theme.name),
@@ -538,7 +545,7 @@ async function loadPayload() {
     defaultTheme,
     defaultLayout: DEFAULT_LAYOUT,
   };
-  return template
+  return runtime
     .replace("__DREAM_CSS_JSON__", () => JSON.stringify(css))
     .replace("__DREAM_ART_ASSETS_JSON__", () => JSON.stringify(artAssets))
     .replace("__DREAM_MANIFEST_JSON__", () => JSON.stringify(manifest));
@@ -552,6 +559,15 @@ async function applyToSession(session, payload) {
   return session.evaluate(payload);
 }
 
+async function runtimeAttached(session) {
+  return session.evaluate(`Boolean(
+    window.__CODEX_DREAM_SKIN_STATE__ &&
+    document.getElementById('codex-dream-skin-style') &&
+    document.getElementById('codex-autoskin-entry-button') &&
+    document.getElementById('codex-autoskin-panel')
+  )`);
+}
+
 async function removeFromSession(session) {
   return session.evaluate(`(() => {
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
@@ -563,7 +579,7 @@ async function removeFromSession(session) {
       rootElement.style.removeProperty('--dream-home-art');
       rootElement.style.removeProperty('--dream-chat-art');
       for (const cls of [...rootElement.classList]) {
-        if (cls === 'codex-dream-skin' || cls.startsWith('dream-theme-') || cls.startsWith('dream-layout-')) {
+        if (cls === 'codex-dream-skin' || cls.startsWith('dream-theme-') || cls.startsWith('dream-layout-') || cls.startsWith('dream-template-')) {
           rootElement.classList.remove(cls);
         }
       }
@@ -574,6 +590,9 @@ async function removeFromSession(session) {
     document.getElementById('codex-dream-skin-style')?.remove();
     document.getElementById('codex-dream-skin-chrome')?.remove();
     document.getElementById('codex-dream-skin-controls')?.remove();
+    document.getElementById('codex-autoskin-entry')?.remove();
+    document.getElementById('codex-autoskin-panel')?.remove();
+    document.getElementById('codex-autoskin-transition')?.remove();
     return true;
   })()`);
 }
@@ -604,7 +623,7 @@ async function inspectAuxiliaryTarget(target, { remove = false } = {}) {
 }
 
 async function verifySession(session) {
-  return session.evaluate(`(() => {
+  const result = await session.evaluate(`(() => {
     const box = (node) => {
       if (!node) return null;
       const r = node.getBoundingClientRect();
@@ -616,6 +635,7 @@ async function verifySession(session) {
     const state = window.__CODEX_DREAM_SKIN_STATE__;
     const result = {
       installed: document.documentElement.classList.contains('codex-dream-skin'),
+      nativeMode: state?.nativeMode === true,
       version: state?.version ?? null,
       theme: state?.theme ?? null,
       layout: state?.layout ?? null,
@@ -623,6 +643,8 @@ async function verifySession(session) {
       stylePresent: Boolean(document.getElementById('codex-dream-skin-style')),
       chromePresent: Boolean(document.getElementById('codex-dream-skin-chrome')),
       legacyControlsPresent: Boolean(document.getElementById('codex-dream-skin-controls')),
+      switcherEntryPresent: Boolean(document.getElementById('codex-autoskin-entry-button')),
+      switcherPanelPresent: Boolean(document.getElementById('codex-autoskin-panel')),
       chromePointerEvents: getComputedStyle(document.getElementById('codex-dream-skin-chrome') || document.body).pointerEvents,
       homePresent: Boolean(home),
       suggestionsPresent: Boolean(suggestions),
@@ -636,15 +658,10 @@ async function verifySession(session) {
         y: document.documentElement.scrollHeight > document.documentElement.clientHeight,
       },
     };
-    result.pass = result.installed && result.stylePresent && result.chromePresent &&
-      Array.isArray(result.themes) && result.themes.length > 0 && result.themes.includes(result.theme) &&
-      ['banner', 'fullscreen'].includes(result.layout) &&
-      !result.legacyControlsPresent &&
-      result.chromePointerEvents === 'none' && Boolean(result.composer) && Boolean(result.sidebar) &&
-      (!result.homePresent || (Boolean(result.hero) &&
-        (!result.suggestionsPresent || (result.cards.length >= 2 && result.cards.length <= 4))));
     return result;
   })()`);
+  result.pass = verifyRuntimeResult(result);
+  return result;
 }
 
 async function waitForVerifiedSession(session, timeoutMs) {
@@ -743,10 +760,20 @@ async function runThemesReport() {
       order: theme.order,
       default: theme.isDefault,
       button: theme.meta.button,
+      displayName: theme.meta.displayName,
+      preview: Boolean(theme.artUrls.preview),
       extraCss: theme.extraCss !== null,
       stickers: theme.stickers ? Object.keys(theme.stickers) : [],
     })),
   }, null, 2));
+}
+
+async function runPayloadFile(options) {
+  if (!options.payloadFile) throw new Error("--payload-file requires an output path");
+  const payload = await loadPayload();
+  await fs.mkdir(path.dirname(options.payloadFile), { recursive: true });
+  await fs.writeFile(options.payloadFile, payload);
+  console.log(JSON.stringify({ ok: true, output: options.payloadFile, bytes: Buffer.byteLength(payload) }, null, 2));
 }
 
 async function runWatch(options) {
@@ -754,6 +781,7 @@ async function runWatch(options) {
   const sessions = new Map();
   const cleanedAuxiliary = new Set();
   let stopping = false;
+  let lastRuntimeHealthCheck = 0;
   const stop = () => { stopping = true; };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
@@ -793,8 +821,24 @@ async function runWatch(options) {
       }
     }
 
+    const checkRuntimeHealth = Date.now() - lastRuntimeHealthCheck >= 5000;
     for (const target of targets) {
-      if (sessions.has(target.id)) continue;
+      if (sessions.has(target.id)) {
+        if (checkRuntimeHealth) {
+          const session = sessions.get(target.id);
+          try {
+            if (!await runtimeAttached(session)) {
+              await applyToSession(session, payload);
+              console.log(`[dream-skin] repaired missing runtime on target ${target.id} (${target.title || target.url})`);
+            }
+          } catch (error) {
+            console.error(`[dream-skin] runtime health check failed for ${target.id}: ${error.message}`);
+            session.close();
+            sessions.delete(target.id);
+          }
+        }
+        continue;
+      }
       try {
         const session = await connectTarget(target);
         session.on("Page.loadEventFired", () => {
@@ -809,6 +853,7 @@ async function runWatch(options) {
         console.error(`[dream-skin] inject failed for ${target.id}: ${error.message}`);
       }
     }
+    if (checkRuntimeHealth) lastRuntimeHealthCheck = Date.now();
     await new Promise((resolve) => setTimeout(resolve, 900));
   }
 
@@ -818,4 +863,5 @@ async function runWatch(options) {
 const options = parseArgs(process.argv.slice(2));
 if (options.mode === "watch") await runWatch(options);
 else if (options.mode === "themes") await runThemesReport();
+else if (options.mode === "payload") await runPayloadFile(options);
 else await runOneShot(options);

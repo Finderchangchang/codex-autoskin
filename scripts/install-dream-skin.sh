@@ -35,7 +35,9 @@ PLIST_PATH="$HOME/Library/LaunchAgents/com.codex-autoskin.watcher.plist"
 mkdir -p "$STATE_ROOT" "$HOME/Library/LaunchAgents"
 [ -f "$CONFIG_PATH" ] || dream_die "Codex config not found: $CONFIG_PATH"
 
-launchctl bootout "gui/$UID/com.codex-autoskin.watcher" >/dev/null 2>&1 || true
+if [ -f "$PLIST_PATH" ]; then
+  launchctl bootout "gui/$UID/com.codex-autoskin.watcher" >/dev/null 2>&1 || true
+fi
 WATCHER_STATE_PATH="$STATE_ROOT/watcher-state.json"
 if [ -f "$WATCHER_STATE_PATH" ]; then
   WATCHER_PID="$(dream_read_json_number "$WATCHER_STATE_PATH" watcherPid 2>/dev/null || true)"
