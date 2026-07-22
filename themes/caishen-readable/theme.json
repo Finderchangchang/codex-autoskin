@@ -1,0 +1,68 @@
+{
+  "name": "caishen-readable",
+  "order": 30,
+  "notes": {
+    "zh": "浅色财神主题，主视觉来自 ChannelerH/codex-skin-packs 的 Caishen Readable 公开主题包。素材为无真人、无界面文字的生成插画，按 THEME-SPEC.md 的浅色干净场景图路线配置，优先保证左侧标题区、建议卡片、输入框和聊天文字可读。",
+    "en": "Light Caishen theme sourced from the public Caishen Readable pack in ChannelerH/codex-skin-packs. The artwork is generated illustration with no real-person likeness and no UI text. It follows THEME-SPEC.md's light clean-scene route and prioritizes readable title, cards, composer, and chat text.",
+    "source": "https://github.com/ChannelerH/codex-skin-packs/tree/main/packs/caishen-readable"
+  },
+  "meta": {
+    "button": "财神",
+    "brand": "Caishen Readable 财神清爽皮肤",
+    "edition": "Caishen Readable · Public Pack",
+    "signature": "Good Fortune ✦"
+  },
+  "art": {
+    "home": "art.png",
+    "chat": "art.png"
+  },
+  "cards": {
+    "subtitles": [
+      "清爽读码，减少视觉疲劳",
+      "把想法稳稳落成代码",
+      "保持审查区干净可读",
+      "先恢复，再修复问题"
+    ],
+    "icons": ["code", "wand", "scales", "wrench"],
+    "opacity": 0.9
+  },
+  "composer": {
+    "placeholder": "写下今天要交付的事…"
+  },
+  "tokens": {
+    "--dream-ink": "#35251c",
+    "--dream-purple": "#c95f3f",
+    "--dream-violet": "#d97a4d",
+    "--dream-pink": "#e8b866",
+    "--dream-page-bg-0": "#fffdf8",
+    "--dream-page-bg-1": "#fff1de",
+    "--dream-page-glow-a": "rgba(232, 184, 102, .34)",
+    "--dream-page-glow-b": "rgba(217, 107, 66, .18)",
+    "--dream-hero-art-size": "auto 310%",
+    "--dream-hero-art-position": "82% 50%",
+    "--dream-fullscreen-art-size": "cover",
+    "--dream-fullscreen-art-position": "72% 48%",
+    "--dream-polaroid-art-size": "300% auto",
+    "--dream-polaroid-art-position": "78% 52%",
+    "--dream-hero-overlay": "linear-gradient(90deg, rgba(255, 252, 247, .98) 0%, rgba(255, 247, 236, .92) 52%, rgba(255, 235, 218, .58) 78%, transparent 100%)",
+    "--dream-fullscreen-overlay-width": "100%",
+    "--dream-fullscreen-overlay": "radial-gradient(120% 95% at 22% 32%, rgba(255, 252, 247, .94) 0%, rgba(255, 247, 236, .72) 36%, rgba(255, 238, 224, .38) 58%, rgba(255, 238, 224, .08) 76%, transparent 88%)",
+    "--dream-fullscreen-wash": "linear-gradient(180deg, rgba(255, 252, 247, .24) 0%, rgba(255, 248, 240, .04) 28%, rgba(255, 248, 240, .08) 60%, rgba(255, 242, 231, .28) 100%)",
+    "--dream-hero-title-color": "#35251c",
+    "--dream-hero-subtitle-color": "rgba(53, 37, 28, .82)",
+    "--dream-hero-title-shadow": "0 1px 0 rgba(255, 255, 255, .92)",
+    "--dream-hero-chip-color": "#b95736",
+    "--dream-hero-chip-bg": "rgba(255, 255, 255, .62)",
+    "--dream-hero-chip-line": "rgba(217, 107, 66, .36)",
+    "--dream-hero-subtitle": "\"财神到位，代码也要清清爽爽 ✦\"",
+    "--dream-chat-art-size": "auto 160%",
+    "--dream-chat-art-position": "82% 50%",
+    "--dream-chat-art-opacity": ".10",
+    "--dream-chat-wash": "rgba(255, 252, 248, .78)",
+    "--dream-card-icon-color": "#fff",
+    "--dream-card-frame": "rgba(232, 184, 102, .44)",
+    "--dream-card-ornament": "#e8b866",
+    "--dream-card-sub-color": "rgba(53, 37, 28, .68)",
+    "--dream-composer-placeholder": "\"写下今天要交付的事…\""
+  }
+}
