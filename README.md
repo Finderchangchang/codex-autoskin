@@ -118,6 +118,16 @@ engine before making their own image theme.
 | [Ember Bloom](themes/ember-bloom/theme.json) | Light-image route demo | `themes/ember-bloom/` |
 | [Caishen Readable](themes/caishen-readable/theme.json) | Warm low-strain light workspace | `themes/caishen-readable/` · [source + install guide](https://codex-theme-gallery.howardhua.chatgpt.site/codex-autoskin?utm_source=finderchangchang-autoskin&utm_medium=readme-built-in-table&utm_campaign=caishen-readable-autoskin) |
 
+To test a bundled theme without generating a new image first:
+
+```powershell
+node scripts\set-theme.mjs caishen-readable fullscreen
+```
+
+```bash
+scripts/autoskin-macos.sh theme caishen-readable fullscreen
+```
+
 <details>
 <summary><b>🖼 Bundled theme previews (Aurora Veil / Ember Bloom)</b></summary>
 
