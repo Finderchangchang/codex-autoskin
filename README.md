@@ -107,6 +107,17 @@ scripts/autoskin-macos.sh quick-theme "/path/to/your.png" --name my-theme
 
 **Image requirements (both platforms)**: PNG / JPG, landscape ≥ 1600 px wide, subject toward the right (the left carries the title), no text / watermark / UI in the art, and you own the rights to it.
 
+### Built-in themes
+
+AutoSkin ships with a few data-only themes so first-time users can verify the
+engine before making their own image theme.
+
+| Theme | Best for | Files |
+|---|---|---|
+| [Aurora Veil](themes/aurora-veil/theme.json) | Dark-image route demo | `themes/aurora-veil/` |
+| [Ember Bloom](themes/ember-bloom/theme.json) | Light-image route demo | `themes/ember-bloom/` |
+| [Caishen Readable](themes/caishen-readable/theme.json) | Warm low-strain light workspace | `themes/caishen-readable/` · [source pack](https://codex-theme-gallery.howardhua.chatgpt.site/themes/caishen-readable?utm_source=finderchangchang-autoskin&utm_medium=readme-built-in-table&utm_campaign=caishen-readable-autoskin) |
+
 <details>
 <summary><b>🖼 Bundled theme previews (Aurora Veil / Ember Bloom)</b></summary>
 
