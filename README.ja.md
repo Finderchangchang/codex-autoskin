@@ -107,6 +107,16 @@ scripts/autoskin-macos.sh quick-theme "/path/to/your.png" --name my-theme
 
 **画像の要件（両プラットフォーム共通）**：PNG / JPG、横長で幅 ≥ 1600px、被写体は右寄せ（左側にタイトルが乗ります）、画像内に文字 / 透かし / UI を含まないこと。素材の権利は各自の責任で確認してください。
 
+### 内蔵テーマ
+
+AutoSkin には、初めて使う方が自分の画像テーマを作る前にエンジンの動作を確認できる、データのみで構成されたテーマが付属しています。
+
+| テーマ | 用途 | ファイル |
+|---|---|---|
+| [Aurora Veil](themes/aurora-veil/theme.json) | 暗い画像ルートのデモ | `themes/aurora-veil/` |
+| [Ember Bloom](themes/ember-bloom/theme.json) | 明るい画像ルートのデモ | `themes/ember-bloom/` |
+| [Caishen Readable](themes/caishen-readable/theme.json) | 目に優しい暖色系のライトワークスペース | `themes/caishen-readable/` · [素材ソースとインストールガイド](https://github.com/ChannelerH/codex-skin-packs/tree/main/packs/caishen-readable) |
+
 <details>
 <summary><b>🖼 内蔵テーマのプレビュー（Aurora Veil / Ember Bloom）</b></summary>
 
