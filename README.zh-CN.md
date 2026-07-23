@@ -107,6 +107,16 @@ scripts/autoskin-macos.sh quick-theme "/path/to/你的图.png" --name my-theme
 
 **图片要求（两端一致）**：PNG / JPG，横向图宽度 ≥ 1600，主体尽量靠右（左侧压标题文字），画面无文字 / 水印 / 界面元素，素材版权责任自负。
 
+### 内置主题
+
+AutoSkin 附带几个纯数据主题，方便首次使用的用户在制作自己的图片主题前验证引擎是否正常。
+
+| 主题 | 适用场景 | 文件 |
+|---|---|---|
+| [Aurora Veil](themes/aurora-veil/theme.json) | 暗色图片路线示例 | `themes/aurora-veil/` |
+| [Ember Bloom](themes/ember-bloom/theme.json) | 浅色图片路线示例 | `themes/ember-bloom/` |
+| [Caishen Readable](themes/caishen-readable/theme.json) | 暖色、低视觉疲劳的浅色工作区 | `themes/caishen-readable/` · [素材来源与安装说明](https://github.com/ChannelerH/codex-skin-packs/tree/main/packs/caishen-readable) |
+
 <details>
 <summary><b>🖼 内置主题预览（Aurora Veil / Ember Bloom）</b></summary>
 
